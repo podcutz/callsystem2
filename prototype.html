@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schedulr - Team Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .sidebar-transition {
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .content-transition {
+            transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #000;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #222;
+            border-radius: 10px;
+        }
+
+        .tab-active {
+            color: #ffffff;
+            border-bottom: 2px solid #ffffff;
+        }
+
+        .custom-checkbox {
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 4px;
+            background: transparent;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s;
+        }
+        .custom-checkbox:checked {
+            background: white;
+            border-color: white;
+        }
+        .custom-checkbox:checked::after {
+            content: '✓';
+            color: black;
+            font-size: 12px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-weight: bold;
+        }
+
+        input[type="time"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            cursor: pointer;
+        }
+
+        /* Team View Calendar Styles */
+        .team-calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 1px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .team-day-cell {
+            background: black;
+            min-height: 120px;
+            padding: 10px;
+            position: relative;
+            transition: background 0.2s;
+            cursor: pointer;
+        }
+        .team-day-cell:hover {
+            background: rgba(255,255,255,0.03);
+        }
+        .team-day-cell.past {
+            opacity: 0.4;
+        }
+        .team-day-cell.selected {
+            background: rgba(255,255,255,0.08);
+            box-shadow: inset 0 0 0 1px white;
+        }
+        
+        .calendar-squeeze {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes pulse-red {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(220, 38, 38, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+        }
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background: #ef4444;
+            border-radius: 50%;
+            animation: pulse-red 2s infinite;
+            display: inline-block;
+        }
+
+        .tag-work { background: #ffffff; color: #000; font-size: 8px; font-weight: 800; padding: 2px 4px; border-radius: 2px; }
+        .tag-off { background: #333; color: #888; font-size: 8px; font-weight: 800; padding: 2px 4px; border-radius: 2px; }
+        
+        .user-indicator {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: white;
+            display: inline-block;
+            margin-right: 2px;
+        }
+
+        /* Booking Calendar Small */
+        .booking-calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+        }
+        .booking-day {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+        }
+        .booking-day:hover:not(.empty) { background: rgba(255,255,255,0.1); }
+        .booking-day.selected { background: white; color: black; font-weight: bold; }
+    </style>
+</head>
+<body class="bg-black text-white font-sans min-h-screen overflow-x-hidden">
+
+    <!-- Sidebar -->
+    <aside id="sidebar" class="sidebar-transition fixed top-0 left-0 h-full bg-black border-r border-white/10 z-50 w-64">
+        <div class="flex flex-col h-full">
+            <div class="p-6 flex items-center justify-between h-20">
+                <div class="flex items-center space-x-3 overflow-hidden">
+                    <div class="w-8 h-8 bg-white rounded flex-shrink-0 flex items-center justify-center">
+                        <span class="font-bold text-black text-xs">S</span>
+                    </div>
+                    <span class="nav-text font-bold text-xl tracking-tighter whitespace-nowrap">SCHEDULR</span>
+                </div>
+                <button onclick="toggleSidebar()" class="p-2 rounded-lg hover:bg-white/10 transition-colors focus:outline-none">
+                    <svg id="toggleIcon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white/50 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                    </svg>
+                </button>
+            </div>
+
+            <nav class="flex-1 px-4 space-y-1 mt-4 overflow-y-auto">
+                <a href="#" id="nav-dashboard" onclick="showPage('dashboard')" class="flex items-center p-3 rounded-lg bg-white text-black transition-all group">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                    </svg>
+                    <span class="nav-text font-semibold text-sm">Dashboard</span>
+                </a>
+                <a href="#" id="nav-availability" onclick="showPage('availability')" class="flex items-center p-3 rounded-lg text-white/40 hover:bg-white/5 hover:text-white transition-all group">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span class="nav-text font-medium text-sm">Availability</span>
+                </a>
+                <a href="#" id="nav-schedule" onclick="showPage('schedule')" class="flex items-center p-3 rounded-lg text-white/40 hover:bg-white/5 hover:text-white transition-all group">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span class="nav-text font-medium text-sm">Schedule Call</span>
+                </a>
+                <a href="#" id="nav-teamview" onclick="showPage('teamview')" class="flex items-center p-3 rounded-lg text-white/40 hover:bg-white/5 hover:text-white transition-all group">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <span class="nav-text font-medium text-sm">Team View</span>
+                </a>
+            </nav>
+
+            <div class="p-4 border-t border-white/5">
+                <div class="flex items-center p-2 rounded-lg hover:bg-white/5 cursor-pointer overflow-hidden transition-colors">
+                    <div class="w-9 h-9 rounded bg-white/10 flex-shrink-0 flex items-center justify-center text-xs font-bold border border-white/10">N</div>
+                    <div class="ml-3 nav-text whitespace-nowrap">
+                        <p class="text-xs font-bold uppercase tracking-wider">Noman</p>
+                        <p class="text-[10px] text-white/40">ADMINISTRATOR</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main id="mainContent" class="content-transition min-h-screen ml-64 flex flex-col">
+        <header class="p-8 pb-6 bg-black flex justify-between items-end">
+            <h1 id="page-title" class="text-4xl font-bold tracking-tighter text-white">Welcome back, Noman</h1>
+            <div id="team-view-filters" class="hidden flex items-center space-x-4">
+                <span class="text-[10px] text-white/30 uppercase font-black tracking-widest">Filter Editors</span>
+                <div id="filter-container" class="flex space-x-2"></div>
+            </div>
+        </header>
+
+        <div class="w-full h-[1px] bg-white/10"></div>
+
+        <!-- DASHBOARD PAGE -->
+        <div id="page-dashboard" class="page">
+            <section class="p-8 flex-1 bg-black">
+                <div class="max-w-4xl">
+                    <h2 class="text-xl font-bold uppercase tracking-widest text-white mb-6">Meetings</h2>
+                    <div class="bg-black rounded-xl border border-white/10 overflow-hidden shadow-[0_0_50px_rgba(255,255,255,0.02)]">
+                        <div class="flex border-b border-white/10 px-6 pt-2">
+                            <button onclick="switchTab('upcoming')" id="tab-upcoming" class="px-4 py-4 text-xs font-bold uppercase tracking-widest transition-all tab-active">Upcoming Sessions</button>
+                            <button onclick="switchTab('past')" id="tab-past" class="px-4 py-4 text-xs font-bold uppercase tracking-widest text-white/30 hover:text-white transition-all">Past</button>
+                        </div>
+                        <div id="content-upcoming" class="p-4 space-y-2">
+                            <div class="flex items-center justify-between p-4 bg-white/5 rounded border border-white/5 hover:bg-white/[0.08] transition-all group">
+                                <div class="flex items-center space-x-4">
+                                    <div class="w-10 h-10 rounded bg-white text-black flex items-center justify-center font-black text-sm">15</div>
+                                    <div>
+                                        <h4 class="font-bold text-sm text-white uppercase tracking-tight">Strategy Alignment Call</h4>
+                                        <p class="text-[10px] text-white/40 uppercase tracking-widest font-medium">10:00 AM - 11:00 AM</p>
+                                    </div>
+                                </div>
+                                <button class="bg-white text-black text-[10px] px-4 py-2 font-black uppercase tracking-widest">Join</button>
+                            </div>
+                            <div class="flex items-center justify-between p-4 bg-white/5 rounded border border-white/5 hover:bg-white/[0.08] transition-all group opacity-80">
+                                <div class="flex items-center space-x-4">
+                                    <div class="w-10 h-10 rounded bg-white/10 text-white flex items-center justify-center font-black text-sm">16</div>
+                                    <div>
+                                        <h4 class="font-bold text-sm text-white uppercase tracking-tight">Design System Audit</h4>
+                                        <p class="text-[10px] text-white/40 uppercase tracking-widest font-medium">01:30 PM - 02:30 PM</p>
+                                    </div>
+                                </div>
+                                <span class="text-[9px] text-white/30 font-bold uppercase mr-4">Pending</span>
+                            </div>
+                        </div>
+                        <div id="content-past" class="hidden p-4 space-y-2">
+                             <div class="flex items-center justify-between p-4 bg-white/5 rounded border border-white/5 grayscale">
+                                <div class="flex items-center space-x-4">
+                                    <div class="w-10 h-10 rounded bg-white/5 text-white/40 flex items-center justify-center font-black text-sm">05</div>
+                                    <div>
+                                        <h4 class="font-bold text-sm text-white/40 uppercase tracking-tight">Financial Kickoff Q1</h4>
+                                        <p class="text-[10px] text-white/20 uppercase tracking-widest font-medium">Completed</p>
+                                    </div>
+                                </div>
+                                <button class="text-white/20 text-[10px] px-4 py-2 font-black uppercase tracking-widest border border-white/5">Details</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- AVAILABILITY PAGE -->
+        <div id="page-availability" class="page hidden">
+            <section class="p-8 flex-1 bg-black">
+                <div class="max-w-4xl">
+                    <div class="flex items-center justify-between mb-6">
+                        <div>
+                            <h2 class="text-xl font-bold uppercase tracking-widest text-white">Availability Editor</h2>
+                            <p class="text-[10px] text-white/40 uppercase tracking-widest mt-1">Configure your active working hours</p>
+                        </div>
+                        <button onclick="showSuccessScreen('Availability Updated', 'Your working hours have been saved')" class="bg-white text-black text-[10px] px-6 py-2 font-black uppercase tracking-widest">Save Changes</button>
+                    </div>
+
+                    <div class="mb-8 p-6 bg-white/[0.03] rounded-xl border border-white/10 flex items-center justify-between">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-10 h-10 rounded bg-white/10 flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
+                            </div>
+                            <div>
+                                <h3 class="text-sm font-bold uppercase tracking-tight">Global Schedule</h3>
+                                <p class="text-[10px] text-white/40 uppercase tracking-widest">Sync all active days</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <span class="text-[10px] font-bold text-white/30 uppercase tracking-widest">Apply All</span>
+                            <input type="checkbox" class="custom-checkbox" onchange="toggleAllDays(this.checked)">
+                        </div>
+                    </div>
+
+                    <div class="space-y-3" id="daily-schedules">
+                        <div class="day-row p-5 bg-black border border-white/10 rounded-xl flex items-center justify-between transition-all" data-day="monday">
+                            <div class="flex items-center space-x-6 w-1/3">
+                                <input type="checkbox" checked class="custom-checkbox day-toggle" onchange="updateRowState(this)">
+                                <span class="text-xs font-bold uppercase tracking-widest min-w-[100px]">Monday</span>
+                            </div>
+                            <div class="flex items-center space-x-4 flex-1 time-controls">
+                                <input type="time" value="09:00" class="bg-black border border-white/20 rounded-md px-3 py-2 text-xs text-white">
+                                <span class="text-white/20">—</span>
+                                <input type="time" value="17:00" class="bg-black border border-white/20 rounded-md px-3 py-2 text-xs text-white">
+                            </div>
+                            <div class="status-indicator text-[10px] text-white font-bold uppercase tracking-tighter bg-white/10 px-2 py-1 rounded">Active</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- SCHEDULE CALL PAGE -->
+        <div id="page-schedule" class="page hidden flex-1 flex flex-col">
+            <section class="p-8 flex-1 bg-black">
+                <div id="team-gallery" class="max-w-6xl">
+                    <h2 class="text-xl font-bold uppercase tracking-widest text-white mb-6">Select a Team Member</h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4"></div>
+                </div>
+
+                <div id="booking-interface" class="max-w-4xl hidden mx-auto mt-10">
+                    <button onclick="closeBooking()" class="flex items-center text-[10px] text-white/40 uppercase tracking-widest font-bold mb-8 hover:text-white transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                        Back to Team
+                    </button>
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-8">
+                        <div class="md:col-span-4 border-r border-white/10 pr-8">
+                            <div id="b-avatar" class="w-20 h-20 rounded bg-white text-black flex items-center justify-center font-black text-2xl mb-4"></div>
+                            <h2 id="b-name" class="text-2xl font-bold tracking-tight"></h2>
+                            <p id="b-role" class="text-[10px] text-white/40 uppercase tracking-[0.2em] mb-6"></p>
+                        </div>
+                        <div class="md:col-span-8 flex flex-col md:flex-row gap-8">
+                            <div class="flex-1">
+                                <h3 class="text-xs font-bold uppercase tracking-widest mb-4">Select Date</h3>
+                                <div class="bg-white/[0.03] border border-white/10 rounded-xl p-4">
+                                    <div class="booking-calendar-grid text-[10px] text-white/30 uppercase font-bold mb-2 text-center">
+                                        <div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div>
+                                    </div>
+                                    <div id="b-calendar-days" class="booking-calendar-grid"></div>
+                                </div>
+                            </div>
+                            <div class="w-full md:w-48">
+                                <h3 class="text-xs font-bold uppercase tracking-widest mb-4">Times</h3>
+                                <div id="b-time-slots" class="space-y-2 overflow-y-auto max-h-[300px]">
+                                    <p class="text-[10px] text-white/30 uppercase">Pick a date</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- TEAM VIEW PAGE -->
+        <div id="page-teamview" class="page hidden flex-1 flex flex-col overflow-hidden">
+            <div class="flex h-full">
+                <div id="team-calendar-container" class="calendar-squeeze flex-1 p-8 overflow-y-auto">
+                    <div class="flex items-center justify-between mb-8">
+                        <h2 class="text-xl font-bold uppercase tracking-widest">March 2024</h2>
+                        <div class="flex items-center space-x-2">
+                            <div class="flex items-center space-x-2 mr-6"><span class="tag-work">WORK</span><span class="tag-off">OFF</span></div>
+                            <button class="p-2 border border-white/10 rounded"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg></button>
+                            <button class="p-2 border border-white/10 rounded"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg></button>
+                        </div>
+                    </div>
+                    <div class="team-calendar-grid uppercase text-[10px] font-black tracking-widest text-white/40 text-center mb-0 bg-transparent border-0">
+                        <div class="py-4">Sun</div><div class="py-4">Mon</div><div class="py-4">Tue</div><div class="py-4">Wed</div><div class="py-4">Thu</div><div class="py-4">Fri</div><div class="py-4">Sat</div>
+                    </div>
+                    <div id="team-grid" class="team-calendar-grid"></div>
+                </div>
+                <div id="call-sidelist" class="hidden w-0 opacity-0 border-l border-white/10 bg-black flex flex-col calendar-squeeze overflow-hidden">
+                    <div class="p-6 border-b border-white/10 flex items-center justify-between">
+                        <div><h3 id="side-date-title" class="text-lg font-bold"></h3><p class="text-[9px] text-white/40 uppercase tracking-widest">Chronological Log</p></div>
+                        <button onclick="closeCallList()" class="p-2 hover:bg-white/5 rounded"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                    </div>
+                    <div id="call-log-container" class="flex-1 overflow-y-auto p-6 space-y-6">
+                        <div id="live-call-section" class="hidden">
+                            <div class="flex items-center space-x-2 mb-4"><div class="live-dot"></div><span class="text-[10px] text-red-500 font-black uppercase tracking-widest">Live Now</span></div>
+                            <div id="live-content"></div>
+                            <div class="h-[1px] bg-white/10 my-6"></div>
+                        </div>
+                        <div id="chronological-calls" class="space-y-4"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+<!-- GLOBAL SUCCESS OVERLAY -->
+<div id="success-overlay" class="fixed inset-0 bg-black flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-500 z-[999]">
+    <div class="text-center">
+        <div class="w-20 h-20 rounded-full bg-white text-black flex items-center justify-center text-3xl font-black mx-auto mb-6">
+            ✓
+        </div>
+        <h2 id="success-title" class="text-2xl font-bold uppercase tracking-widest mb-2"></h2>
+        <p id="success-sub" class="text-[11px] text-white/40 uppercase tracking-widest"></p>
+    </div>
+</div>
+    </main>
+
+    <script>
+function showSuccessScreen(title, subtitle) {
+    const overlay = document.getElementById('success-overlay');
+    const mainContent = document.getElementById('mainContent');
+
+    // Attach overlay only to the active main content
+    mainContent.appendChild(overlay);
+
+    document.getElementById('success-title').innerText = title;
+    document.getElementById('success-sub').innerText = subtitle;
+
+    overlay.classList.remove('pointer-events-none');
+    overlay.style.opacity = "1";
+
+    // Hide after 3 seconds
+    setTimeout(() => {
+        overlay.style.opacity = "0";
+        setTimeout(() => {
+            overlay.classList.add('pointer-events-none');
+        }, 500); // matches CSS transition duration
+    }, 3000);
+}
+        // GLOBAL STATE
+        let isCollapsed = false;
+        let selectedFilters = [];
+        const today = 15; // Mocking today is March 15th
+
+        // MASSIVE RAW DATASET
+        const teamMembers = [
+            { id: 1, name: "Alexander Pierce", role: "Design Director", init: "AP" },
+            { id: 2, name: "Sarah Connor", role: "Frontend Lead", init: "SC" },
+            { id: 3, name: "Marcus Wright", role: "Product Manager", init: "MW" },
+            { id: 4, name: "Elena Gilbert", role: "User Experience", init: "EG" },
+            { id: 5, name: "Reese Kyle", role: "Backend Engineer", init: "RK" },
+            { id: 6, name: "Miles Dyson", role: "AI Researcher", init: "MD" },
+            { id: 7, name: "Silas Vane", role: "Technical Writer", init: "SV" },
+            { id: 8, name: "Nova Prime", role: "Operations", init: "NP" },
+            { id: 9, name: "Echo Sierra", role: "Cloud Architect", init: "ES" },
+            { id: 10, name: "Tango Victor", role: "Security Specialist", init: "TV" },
+            { id: 11, name: "John Doe", role: "Marketing Lead", init: "JD" },
+            { id: 12, name: "Jane Smith", role: "QA Engineer", init: "JS" }
+        ];
+
+        const mockCalls = [
+            // Past Calls
+            { id: 101, day: 1, time: "08:30 AM", title: "Infrastructure Review", editors: [9, 10] },
+            { id: 102, day: 2, time: "10:00 AM", title: "Monthly Sync", editors: [1, 2, 3] },
+            { id: 103, day: 3, time: "02:00 PM", title: "API Documentation", editors: [7, 5] },
+            { id: 104, day: 5, time: "09:00 AM", title: "Budget Audit", editors: [4, 8] },
+            { id: 105, day: 7, time: "11:00 AM", title: "Security Patch Update", editors: [10, 5] },
+            { id: 106, day: 10, time: "09:00 AM", title: "Legacy Review", editors: [1, 2] },
+            { id: 107, day: 12, time: "01:00 PM", title: "Content Strategy", editors: [11, 7] },
+            { id: 108, day: 14, time: "04:30 PM", title: "Pre-deployment Check", editors: [12, 2] },
+            
+            // Current Day (Today)
+            { id: 201, day: 15, time: "10:00 AM", title: "Strategy Alignment Call", editors: [1, 3], isLive: true },
+            { id: 202, day: 15, time: "12:00 PM", title: "Mid-Day Checkin", editors: [8, 4] },
+            { id: 203, day: 15, time: "02:00 PM", title: "Client Handover Session", editors: [2, 4, 11] },
+            { id: 204, day: 15, time: "04:00 PM", title: "Sprint Grooming", editors: [3, 12, 6] },
+            
+            // Future Calls
+            { id: 301, day: 16, time: "09:30 AM", title: "Design System Workshop", editors: [1, 4] },
+            { id: 302, day: 17, time: "11:00 AM", title: "AI Model Refinement", editors: [6, 9] },
+            { id: 303, day: 18, time: "03:00 PM", title: "Stakeholder Update", editors: [3, 8] },
+            { id: 304, day: 20, time: "10:00 AM", title: "Weekly Planning", editors: [1, 3, 5, 8] },
+            { id: 305, day: 22, time: "11:30 AM", title: "Future Planning", editors: [1, 5] },
+            { id: 306, day: 25, time: "09:00 AM", title: "Quarterly Review Prep", editors: [11, 1, 3] },
+            { id: 307, day: 28, time: "02:00 PM", title: "Security Audit", editors: [10, 9] },
+            { id: 308, day: 30, time: "04:00 PM", title: "Team Wind Down", editors: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] }
+        ];
+
+        // NAVIGATION LOGIC
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('mainContent');
+            const toggleIcon = document.getElementById('toggleIcon');
+            const navTexts = document.querySelectorAll('.nav-text');
+            isCollapsed = !isCollapsed;
+
+            if (isCollapsed) {
+                sidebar.style.width = '70px';
+                mainContent.style.marginLeft = '70px';
+                toggleIcon.style.transform = 'rotate(180deg)';
+                navTexts.forEach(el => el.classList.add('hidden'));
+            } else {
+                sidebar.style.width = '256px';
+                mainContent.style.marginLeft = '256px';
+                toggleIcon.style.transform = 'rotate(0deg)';
+                navTexts.forEach(el => el.classList.remove('hidden'));
+            }
+        }
+
+        function showPage(pageId) {
+            document.querySelectorAll('.page').forEach(page => page.classList.add('hidden'));
+            document.getElementById('page-' + pageId).classList.remove('hidden');
+
+            const title = document.getElementById('page-title');
+            const filters = document.getElementById('team-view-filters');
+            filters.classList.add('hidden');
+            
+            if(pageId === 'dashboard') title.innerText = "Welcome back, Noman";
+            if(pageId === 'availability') title.innerText = "Availability";
+            if(pageId === 'schedule') {
+                title.innerText = "Schedule a Call";
+                initScheduleGallery();
+            }
+            if(pageId === 'teamview') {
+                title.innerText = "Team Schedule";
+                filters.classList.remove('hidden');
+                initTeamView();
+            }
+
+            ['dashboard', 'availability', 'schedule', 'teamview'].forEach(id => {
+                const nav = document.getElementById('nav-' + id);
+                if (nav) {
+                    if (id === pageId) nav.className = "flex items-center p-3 rounded-lg bg-white text-black transition-all group";
+                    else nav.className = "flex items-center p-3 rounded-lg text-white/40 hover:bg-white/5 hover:text-white transition-all group";
+                }
+            });
+        }
+
+        // AVAILABILITY LOGIC
+        function initAvailability() {
+            const container = document.getElementById('daily-schedules');
+            const existingRow = container.querySelector('.day-row');
+            const daysArr = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+            
+            daysArr.slice(1).forEach(dayName => {
+                const clone = existingRow.cloneNode(true);
+                clone.setAttribute('data-day', dayName);
+                clone.querySelector('span').innerText = dayName.charAt(0).toUpperCase() + dayName.slice(1);
+                const cb = clone.querySelector('.day-toggle');
+                if (dayName === 'saturday' || dayName === 'sunday') cb.checked = false;
+                container.appendChild(clone);
+                updateRowState(cb);
+            });
+            updateRowState(existingRow.querySelector('.day-toggle'));
+        }
+
+        function updateRowState(checkbox) {
+            const row = checkbox.closest('.day-row');
+            const timeControls = row.querySelector('.time-controls');
+            const status = row.querySelector('.status-indicator');
+            let unavailableText = row.querySelector('.unavailable-text');
+
+            if (checkbox.checked) {
+                row.classList.remove('opacity-40');
+                timeControls.classList.remove('hidden');
+                if (unavailableText) unavailableText.classList.add('hidden');
+                status.innerText = "Active";
+            } else {
+                row.classList.add('opacity-40');
+                timeControls.classList.add('hidden');
+                if (!unavailableText) {
+                    unavailableText = document.createElement('div');
+                    unavailableText.className = "flex-1 unavailable-text text-[10px] text-white/40 uppercase tracking-[0.2em]";
+                    unavailableText.innerText = "Closed / Unavailable";
+                    row.insertBefore(unavailableText, status);
+                } else unavailableText.classList.remove('hidden');
+                status.innerText = "Off";
+            }
+        }
+
+        function toggleAllDays(checked) {
+            document.querySelectorAll('.day-toggle').forEach(cb => {
+                cb.checked = checked;
+                updateRowState(cb);
+            });
+        }
+
+        // SCHEDULE GALLERY LOGIC
+        function initScheduleGallery() {
+            const container = document.querySelector('#team-gallery .grid');
+            container.innerHTML = '';
+            teamMembers.forEach(m => {
+                const card = document.createElement('div');
+                card.className = "p-6 bg-white/[0.03] border border-white/10 rounded-xl hover:bg-white/[0.06] hover:border-white/30 cursor-pointer transition-all group text-center";
+                card.innerHTML = `
+                    <div class="w-16 h-16 rounded-lg bg-white text-black font-black text-lg flex items-center justify-center mx-auto mb-4 group-hover:scale-105 transition-transform">${m.init}</div>
+                    <h4 class="text-sm font-bold tracking-tight mb-1">${m.name}</h4>
+                    <p class="text-[9px] text-white/40 uppercase tracking-widest">${m.role}</p>
+                `;
+                card.onclick = () => openBooking(m);
+                container.appendChild(card);
+            });
+        }
+
+        function openBooking(m) {
+            document.getElementById('team-gallery').classList.add('hidden');
+            document.getElementById('booking-interface').classList.remove('hidden');
+            document.getElementById('b-name').innerText = m.name;
+            document.getElementById('b-role').innerText = m.role;
+            document.getElementById('b-avatar').innerText = m.init;
+            initBookingCalendar();
+        }
+
+        function closeBooking() {
+            document.getElementById('team-gallery').classList.remove('hidden');
+            document.getElementById('booking-interface').classList.add('hidden');
+        }
+
+        function initBookingCalendar() {
+            const grid = document.getElementById('b-calendar-days');
+            grid.innerHTML = '';
+            for(let i=0; i<5; i++) grid.innerHTML += `<div class="booking-day empty"></div>`;
+            for(let i=1; i<=31; i++) {
+                const d = document.createElement('div');
+                d.className = "booking-day rounded-md";
+                d.innerText = i;
+                d.onclick = (e) => {
+                    document.querySelectorAll('.booking-day').forEach(el => el.classList.remove('selected'));
+                    e.target.classList.add('selected');
+                    const slots = document.getElementById('b-time-slots');
+                    slots.innerHTML = ["09:00 AM", "11:30 AM", "01:00 PM", "02:30 PM", "04:00 PM", "05:30 PM"].map(t => `
+                        <button onclick="showSuccessScreen('Booking Confirmed', 'Your session is locked for ${t}')" class="w-full p-3 bg-black border border-white/10 rounded text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all">${t}</button>
+                    `).join('');
+                };
+                grid.appendChild(d);
+            }
+        }
+
+        // TEAM VIEW LOGIC
+        function initTeamView() {
+            const filterWrap = document.getElementById('filter-container');
+            filterWrap.innerHTML = '';
+            teamMembers.forEach(m => {
+                const btn = document.createElement('button');
+                btn.className = "px-3 py-1 rounded-full border border-white/10 text-[9px] font-bold uppercase transition-all whitespace-nowrap";
+                btn.innerText = m.init;
+                btn.onclick = () => {
+                    if (selectedFilters.includes(m.id)) {
+                        selectedFilters = selectedFilters.filter(id => id !== m.id);
+                        btn.classList.remove('bg-white', 'text-black');
+                    } else {
+                        selectedFilters.push(m.id);
+                        btn.classList.add('bg-white', 'text-black');
+                    }
+                    renderTeamGrid();
+                };
+                filterWrap.appendChild(btn);
+            });
+            renderTeamGrid();
+        }
+
+        function renderTeamGrid() {
+            const grid = document.getElementById('team-grid');
+            grid.innerHTML = '';
+            for(let i=0; i<5; i++) grid.innerHTML += `<div class="team-day-cell empty bg-black/20"></div>`;
+            for(let i=1; i<=31; i++) {
+                const isPast = i < today;
+                const isToday = i === today;
+                const isWeekend = (i + 5) % 7 === 0 || (i + 5) % 7 === 6;
+                const dayCalls = mockCalls.filter(c => c.day === i);
+                const filtered = selectedFilters.length ? dayCalls.filter(c => c.editors.some(eId => selectedFilters.includes(eId))) : dayCalls;
+
+                const cell = document.createElement('div');
+                cell.className = `team-day-cell ${isPast ? 'past' : ''} ${isToday ? 'selected' : ''}`;
+                cell.innerHTML = `
+                    <div class="flex justify-between">
+                        <span class="text-xs font-bold ${isToday ? 'bg-white text-black px-1 rounded' : ''}">${i}</span>
+                        <div class="flex flex-col items-end gap-1">
+                            ${isWeekend ? '<span class="tag-off">OFF</span>' : '<span class="tag-work">WORK</span>'}
+                            ${isToday ? '<div class="live-dot"></div>' : ''}
+                        </div>
+                    </div>
+                    <div class="mt-4 flex flex-wrap gap-1">${filtered.map(() => '<div class="user-indicator"></div>').join('')}</div>
+                `;
+                cell.onclick = () => openCallList(i, filtered);
+                grid.appendChild(cell);
+            }
+        }
+
+        function openCallList(day, calls) {
+    const sidelist = document.getElementById('call-sidelist');
+    document.getElementById('side-date-title').innerText = `March ${day}, 2024`;
+    sidelist.classList.remove('hidden');
+    setTimeout(() => { sidelist.style.width = "400px"; sidelist.style.opacity = "1"; }, 10);
+
+    const liveSection = document.getElementById('live-call-section');
+    const liveContent = document.getElementById('live-content');
+    const chronoContainer = document.getElementById('chronological-calls');
+    
+    liveSection.classList.add('hidden');
+    chronoContainer.innerHTML = '';
+
+    if (!calls.length) {
+        chronoContainer.innerHTML = '<p class="text-center mt-20 text-[9px] text-white/20 uppercase">No sessions recorded</p>';
+        return;
+    }
+
+    // Sort calls by time
+    function parseTimeToNumber(timeStr) {
+        let [time, modifier] = timeStr.split(' ');
+        let [hours, minutes] = time.split(':').map(Number);
+        if (modifier === 'PM' && hours !== 12) hours += 12;
+        if (modifier === 'AM' && hours === 12) hours = 0;
+        return hours * 60 + minutes;
+    }
+
+    const sortedCalls = [...calls].sort((a, b) => parseTimeToNumber(a.time) - parseTimeToNumber(b.time));
+
+    sortedCalls.forEach(c => {
+        const el = document.createElement('div');
+        el.className = "p-4 border border-white/10 rounded group-hover:border-white/30 transition-all";
+
+        // Get editor names
+        const editorNames = c.editors.map(id => {
+            const member = teamMembers.find(m => m.id === id);
+            return member ? member.name : 'Unknown';
+        }).join(', ');
+
+        el.innerHTML = `
+    <div class="flex justify-between mb-2">
+        <span class="text-[9px] font-black text-white uppercase tracking-widest">${c.time}</span>
+        <span class="text-[9px] font-black text-white uppercase tracking-widest">${c.title}</span>
+    </div>
+    <div class="text-[10px] text-white uppercase tracking-widest">
+        ${editorNames}
+    </div>
+`;
+
+        // Highlight live call if any
+        if (c.isLive) {
+            liveSection.classList.remove('hidden');
+            liveContent.innerHTML = el.outerHTML;
+        } else {
+            chronoContainer.appendChild(el);
+        }
+    });
+}
+
+        function closeCallList() {
+            const sidelist = document.getElementById('call-sidelist');
+            sidelist.style.width = "0"; sidelist.style.opacity = "0";
+            setTimeout(() => sidelist.classList.add('hidden'), 400);
+        }
+
+        function switchTab(tab) {
+            const upBtn = document.getElementById('tab-upcoming');
+            const pastBtn = document.getElementById('tab-past');
+            const upContent = document.getElementById('content-upcoming');
+            const pastContent = document.getElementById('content-past');
+            if (tab === 'upcoming') {
+                upBtn.classList.add('tab-active'); pastBtn.classList.remove('tab-active');
+                upContent.classList.remove('hidden'); pastContent.classList.add('hidden');
+            } else {
+                pastBtn.classList.add('tab-active'); upBtn.classList.remove('tab-active');
+                pastContent.classList.remove('hidden'); upContent.classList.add('hidden');
+            }
+        }
+
+        window.onload = () => {
+            initAvailability();
+            showPage('dashboard');
+        };
+    </script>
+</body>
+</html>
