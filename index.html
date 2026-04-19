@@ -39,72 +39,6 @@
       height: 100dvh !important; 
   }
 
-  /* 4. If we detect SAMSUNG INTERNET specifically */
-  body.is-samsung-browser {
-      position: absolute !important; /* Kills the fixed white-tile paint bug */
-      top: 0 !important;
-      left: 0 !important;
-      width: 100vw !important;
-      height: 100dvh !important; /* Uses dynamic height instead of strict % */
-      overflow: hidden !important;
-      --s-scale: 1;
-      --s-inv: 1;
-  }
-  
-  body.is-samsung-browser #form-container {
-      /* Pure CSS mathematical scaling: immune to keyboard resize bugs */
-      transform: scale(var(--s-scale));
-      transform-origin: top left;
-      width: calc(100vw * var(--s-inv)) !important; /* Replaced % with vw */
-      height: calc(100dvh * var(--s-inv)) !important; /* Replaced % with dvh */
-      position: absolute !important;
-      top: 0 !important;
-      left: 0 !important;
-      background-color: var(--bg-color); /* Form claims the background paint */
-      z-index: 10; /* Forces form on top of any browser phantom tiles */
-  }
-  
-  body.is-samsung-browser .progress-bar-wrapper {
-      transform: scale(var(--s-scale));
-      transform-origin: top left;
-      width: calc(100vw * var(--s-inv)) !important;
-      z-index: 2000; /* Ensures it stays above the new container z-index */
-  }
-
-  body.is-samsung-browser .step {
-      position: absolute !important;
-      height: 100% !important;
-      width: 100% !important;
-      top: 0 !important;
-      left: 0 !important;
-      padding-bottom: 120px !important; 
-  }
-
-  body.is-samsung-browser .nav-pill {
-      /* Nav pill scales independently from its bottom anchor */
-      transform: scale(calc(0.9 * var(--s-scale))) !important;
-      transform-origin: bottom right;
-      bottom: 80px !important; 
-      z-index: 2000; /* Ensures it stays above the new container z-index */
-  }
-
-  /* Samsung Internet specific Autofill Fix to completely remove bluish background boxes */
-  body.is-samsung-browser .tf-input:-webkit-autofill,
-  body.is-samsung-browser .tf-input:-webkit-autofill:hover, 
-  body.is-samsung-browser .tf-input:-webkit-autofill:focus, 
-  body.is-samsung-browser .tf-input:-webkit-autofill:active,
-  body.is-samsung-browser .custom-dropdown-input:-webkit-autofill,
-  body.is-samsung-browser .custom-dropdown-input:-webkit-autofill:hover,
-  body.is-samsung-browser .custom-dropdown-input:-webkit-autofill:focus,
-  body.is-samsung-browser .custom-dropdown-input:-webkit-autofill:active {
-      -webkit-box-shadow: 0 0 0 1000px var(--bg-color) inset !important;
-      -webkit-text-fill-color: var(--accent-color) !important;
-      transition: background-color 5000s ease-in-out 0s !important;
-      background-color: var(--bg-color) !important;
-      background-image: none !important;
-      background-clip: padding-box !important;
-  }
-  
   :root {
     --bg-color: #ffffff;
     --text-color: #000000;
@@ -1145,20 +1079,51 @@
 </form>
 
 <script>
-  // --- ENVIRONMENT DETECTION ---
+  // --- ENVIRONMENT DETECTION & ROUTING ENGINE ---
   function detectEnvironment() {
       const ua = navigator.userAgent || navigator.vendor || window.opera;
+      const uaLower = ua.toLowerCase();
       const body = document.body;
 
-      // 1. Detect if it's a mobile device generally
-      const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua.toLowerCase());
+      // 1. THE CHROME ENFORCER (Android Only)
+      const isAndroid = /android/i.test(uaLower);
+      // Determine if it's "True Chrome" (Must have 'chrome', but NOT be Samsung, Edge, Opera, Brave, etc.)
+      const isTrueChrome = /chrome/i.test(uaLower) && !/samsungbrowser|edg|opr|brave/i.test(uaLower);
+
+      if (isAndroid && !isTrueChrome) {
+          // Grab the exact current URL dynamically (without the https:// prefix)
+          const currentHostPath = window.location.host + window.location.pathname + window.location.search;
+          const intentUrl = "intent://" + currentHostPath + "#Intent;scheme=https;package=com.android.chrome;end;";
+
+          // Attempt to force-open Chrome via Intent
+          window.location.href = intentUrl;
+
+          // If intent fails or is blocked by an app (like Instagram), render a clean fallback UI after 1.5s
+          setTimeout(() => {
+              document.body.innerHTML = `
+                  <div style="height: 100dvh; width: 100vw; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px; text-align: center; background-color: var(--bg-color); color: var(--accent-color); font-family: var(--font-family); box-sizing: border-box;">
+                      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 20px;"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="4"></circle><line x1="21.17" y1="8" x2="12" y2="8"></line><line x1="3.95" y1="6.06" x2="8.54" y2="14"></line><line x1="10.88" y1="21.94" x2="15.46" y2="14"></line></svg>
+                      <h2 style="font-size: 24px; margin-bottom: 10px; font-weight: bold;">Chrome Recommended</h2>
+                      <p style="font-size: 16px; margin-bottom: 30px; opacity: 0.8; max-width: 300px;">To ensure the best experience and prevent glitches, please open this page securely in Google Chrome.</p>
+                      <a href="${intentUrl}" style="background-color: var(--accent-color); color: #fff; padding: 14px 28px; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 16px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">Open in Chrome</a>
+                      <p style="font-size: 13px; opacity: 0.6; line-height: 1.5; margin-bottom: 10px;">If the button doesn't work, tap the <strong>three dots</strong> in the corner and select <strong>"Open in external browser"</strong>.</p>
+                      <p style="font-size: 12px; opacity: 0.4;"><br><a href="https://play.google.com/store/apps/details?id=com.android.chrome" style="color: var(--accent-color); text-decoration: underline;">Install from Play Store</a></p>
+                  </div>
+              `;
+          }, 1500);
+
+          return; // HALT execution of the rest of the form to prevent buggy rendering
+      }
+
+      // 2. Standard Mobile Detection (Executes if iOS, Desktop, or True Android Chrome)
+      const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(uaLower);
       if (isMobile) {
           body.classList.add('is-mobile');
       } else {
           body.classList.add('is-desktop');
       }
 
-      // 2. Detect notorious In-App Browsers via UA strings
+      // 3. Fallback In-App Browser Detection (For iOS mostly)
       const rules = [
           'FBAV', 'FBAN', // Facebook
           'Instagram',    // Instagram
@@ -1169,42 +1134,10 @@
       ];
       
       const isInApp = rules.some(rule => ua.indexOf(rule) > -1);
-      const isSamsung = /SamsungBrowser/i.test(ua);
       
       if (isInApp) {
           body.classList.add('is-in-app-browser');
-          // Optional: You can even detect which specific one if needed
           if (ua.indexOf('LinkedInApp') > -1) body.classList.add('is-linkedin');
-      }
-
-      // 3. Detect Samsung Internet specifically
-      if (isSamsung) {
-          body.classList.add('is-samsung-browser');
-          
-          // NUCLEAR OPTION: Reverse-scale to defeat Samsung's aggressive "Webpage text size" slider
-          try {
-              const testEl = document.createElement('div');
-              // Create an invisible 10px text element
-              testEl.style.cssText = 'position:absolute; visibility:hidden; font-size:10px; line-height:1; top:-9999px; margin:0; padding:0;';
-              testEl.innerText = 'A';
-              document.body.appendChild(testEl);
-              
-              // Measure what Samsung ACTUALLY rendered it as
-              const computedSize = parseFloat(window.getComputedStyle(testEl).fontSize);
-              document.body.removeChild(testEl);
-              
-              // If Samsung inflated the 10px text, calculate the exact opposite ratio
-              if (computedSize > 10.1 || computedSize < 9.9) {
-                  const scaleRatio = 10 / computedSize;
-                  const invScale = 1 / scaleRatio;
-                  
-                  // PURE CSS VARIABLE FIX (NO RESIZE LISTENERS):
-                  // By passing these variables to CSS, we let the browser natively calculate the layout.
-                  // This completely destroys the "half screen cut" bug caused by JS resize listeners fighting the keyboard.
-                  document.body.style.setProperty('--s-scale', scaleRatio);
-                  document.body.style.setProperty('--s-inv', invScale);
-              }
-          } catch(e) { console.warn("Reverse scale failed", e); }
       }
   }
 
