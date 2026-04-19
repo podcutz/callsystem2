@@ -721,17 +721,19 @@
           word-wrap: break-word; /* Breaks long text so it doesn't push off screen */
       }
 
-      /* Perfect 6-5 staggered pyramid layout for Q5 scale on mobile */
+      /* Perfect 6-5 staggered pyramid layout for Q5 scale on mobile (Dynamic Viewport Size) */
       .scale-container {
           margin-left: 0;
           width: 100%;
           justify-content: center; 
-          gap: 6px; /* Balanced gap to allow larger circles */
+          gap: 2vw; /* Dynamic gap based on screen width */
       }
       .scale-label {
-          width: 52px; /* Increased to fully and easily occupy mobile screen width */
-          height: 52px;
-          font-size: 20px;
+          width: 13vw; /* Perfect dynamic width (6 circles * 13vw = 78vw, safely fitting 100vw) */
+          height: 13vw; /* Keep it perfectly round */
+          max-width: 55px; /* Cap size on larger mobile screens like Pro Max */
+          max-height: 55px;
+          font-size: clamp(14px, 4vw, 20px); /* Dynamic font size that never gets too small or too big */
       }
       .mobile-break {
           display: block;
@@ -753,25 +755,42 @@
           overflow: hidden; /* Fixed on screen, prevents the whole view from scrolling up */
       }
       #step-10 .step-content {
-          margin-top: 3vh; /* Moves the entire card slightly up vertically */
-          margin-bottom: auto; /* Keeps it fixed towards the upper half of the screen */
+          margin-top: 1vh; /* Moves the entire card slightly up vertically */
+          margin-bottom: 0; 
           padding-bottom: 0;
+          flex: 1; /* Forces the content to fill the remaining screen space */
+          min-height: 0; /* CRITICAL: Allows inner elements to shrink and not push off-screen */
+          display: flex;
+          flex-direction: column;
+      }
+      
+      #step-10 .step-content > div {
+          flex: 1;
+          min-height: 0;
+      }
+      
+      #step-10 .step-content .gap-4 {
+          flex: 1;
+          min-height: 0;
       }
       
       #timeSlotsContainer.open {
-          width: 100%; /* Explicit full width to widen viewport */
+          width: 100%; 
           max-width: 100%;
-          height: 48vh; /* Expanded dynamic height to ensure slots aren't too narrow at the bottom */
-          min-height: 280px;
+          flex: 1; /* Dynamically takes exactly the remaining screen height, no more, no less */
+          min-height: 0; /* Ensures it never pushes below the screen border */
+          height: auto;
           margin-left: 0;
           margin-top: 1rem;
-          overflow-y: auto !important; /* Makes the "Select a date" text scroll UP with the timeslots */
-          padding-right: 4px; /* Adds a slight gap for the native mobile scrollbar */
+          overflow-y: auto !important; 
+          padding-right: 4px; 
+          padding-bottom: 90px; /* Extra space at the bottom so the last slot clears the navigation pill */
       }
       
       #timeSlotsList {
-          height: auto !important; /* Removes inner height restriction */
-          overflow-y: visible !important; /* Transfers scrolling power completely to the parent container */
+          height: auto !important; 
+          overflow-y: visible !important; 
+          padding-bottom: 10px; 
       }
 
       .time-slot-btn {
