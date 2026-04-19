@@ -1033,8 +1033,8 @@
     </div>
 
     <div class="step" id="step-10">
-      <div class="step-content" style="max-width: 900px; width: 100%; padding-top: 0; padding-bottom: 0;">
-        <div class="flex flex-col items-center justify-center w-full">
+      <div class="step-content" style="max-width: 900px; width: 100%; padding-top: 0; padding-bottom: 0; margin-top: 4vh; margin-bottom: auto;">
+        <div class="flex flex-col items-center justify-start w-full">
           <img src="https://res.cloudinary.com/dobnqmfsg/image/upload/q_auto/f_auto/v1776510599/Untitled_design__3_-removebg-preview_xoxdtc.png" alt="Logo" class="w-16 mb-4 mt-0">
           <div class="flex flex-col md:flex-row items-start justify-center w-full gap-4">
             
@@ -1091,11 +1091,7 @@
 
     <div class="step" id="step-11">
       <div class="step-content text-center flex flex-col items-center">
-        <div class="w-20 h-20 bg-[var(--accent-color)] text-white rounded-full flex items-center justify-center mb-6">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-            </svg>
-        </div>
+        <img src="https://res.cloudinary.com/dobnqmfsg/image/upload/q_auto/f_auto/v1776510599/Untitled_design__3_-removebg-preview_xoxdtc.png" alt="Success Logo" class="w-24 mb-6 drop-shadow-sm">
         <h1 class="text-4xl font-light mb-4 text-[var(--accent-color)]">You're all set!</h1>
         <p class="text-[rgba(3,35,48,0.6)] max-w-md mx-auto leading-relaxed text-lg">We've sent a confirmation email with the meeting details. Our team is excited to help you scale.</p>
       </div>
@@ -1270,6 +1266,7 @@
   // "Go Forward" Navigation Logic (relies on existing validation)
   if (navDownBtn) {
     navDownBtn.addEventListener('click', () => {
+      if (currentStep === 9) return; // Prevent arrow navigation on the Calendar step (forces Book Now)
       goToStep(currentStep + 1);
     });
   }
