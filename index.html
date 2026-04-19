@@ -106,7 +106,7 @@
 
   /* The main container */
   #form-container {
-    height: 100%;
+    height: 100vh;
     width: 100%;
     position: absolute;
     top: 0;
@@ -1172,22 +1172,15 @@
               // If Samsung inflated the 10px text, calculate the exact opposite ratio
               if (computedSize > 10.1 || computedSize < 9.9) {
                   const scaleRatio = 10 / computedSize;
+                  // Apply webkit zoom to the root to neutralize the font explosion
+                  document.documentElement.style.zoom = scaleRatio;
                   
-                  // THE ULTIMATE FIX FOR THE HALF-SCREEN CUTOFF:
-                  // CSS 'zoom' causes physical paint clipping in Samsung Chromium (the bottom half disappears). 
-                  // We switch to CSS 'transform: scale', which bypasses the paint clipping bug entirely.
-                  document.body.style.setProperty('transform', `scale(${scaleRatio})`, 'important');
-                  document.body.style.setProperty('transform-origin', 'top left', 'important');
-                  
+                  // GOD FIX FOR HALF-SCREEN CUTOFF:
                   // When the keyboard opens/closes, physical bounds break. We use JS to surgically 
-                  // force the width and height in exact pixels, inversing the scale ratio in real-time.
+                  // force the width and height in exact pixels, inversing the zoom ratio in real-time.
                   function forceSamsungPixelBounds() {
-                      // Use visualViewport if available to perfectly track the virtual keyboard
-                      const activeWidth = window.visualViewport ? window.visualViewport.width : window.innerWidth;
-                      const activeHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-                      
-                      const trueWidth = activeWidth / scaleRatio;
-                      const trueHeight = activeHeight / scaleRatio;
+                      const trueWidth = window.innerWidth / scaleRatio;
+                      const trueHeight = window.innerHeight / scaleRatio;
                       
                       document.body.style.setProperty('width', trueWidth + 'px', 'important');
                       document.body.style.setProperty('height', trueHeight + 'px', 'important');
@@ -1202,9 +1195,6 @@
                   // Run instantly and bind to screen resizes (keyboard opening/closing)
                   forceSamsungPixelBounds();
                   window.addEventListener('resize', forceSamsungPixelBounds);
-                  if (window.visualViewport) {
-                      window.visualViewport.addEventListener('resize', forceSamsungPixelBounds);
-                  }
               }
           } catch(e) { console.warn("Reverse scale failed", e); }
       }
