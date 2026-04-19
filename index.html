@@ -726,14 +726,16 @@
           margin-left: 0;
           width: 100%;
           justify-content: center; 
-          gap: 2vw; /* Dynamic gap based on screen width */
+          gap: 5px; /* Fixed safe gap to prevent mathematical overflowing */
       }
       .scale-label {
-          width: 13vw; /* Perfect dynamic width (6 circles * 13vw = 78vw, safely fitting 100vw) */
-          height: 13vw; /* Keep it perfectly round */
-          max-width: 55px; /* Cap size on larger mobile screens like Pro Max */
-          max-height: 55px;
-          font-size: clamp(14px, 4vw, 20px); /* Dynamic font size that never gets too small or too big */
+          /* Mathematically guarantees 6 circles always fit: (100% container width - 5 gaps * 5px) / 6 */
+          width: calc((100% - 25px) / 6); 
+          height: auto; 
+          aspect-ratio: 1; /* Forces the height to exactly match the dynamically calculated width */
+          max-width: 50px; 
+          max-height: 50px;
+          font-size: clamp(12px, 3.5vw, 18px); /* Safe font scaling for smaller circles */
       }
       .mobile-break {
           display: block;
@@ -767,6 +769,7 @@
       #step-10 .step-content > div {
           flex: 1;
           min-height: 0;
+          justify-content: flex-start !important; /* CRITICAL: Pins the calendar permanently to the top, removing the jump jitter */
       }
       
       #step-10 .step-content .gap-4 {
