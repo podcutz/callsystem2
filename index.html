@@ -753,21 +753,25 @@
           overflow: hidden; /* Fixed on screen, prevents the whole view from scrolling up */
       }
       #step-10 .step-content {
-          margin-top: 0;
+          margin-top: 3vh; /* Moves the entire card slightly up vertically */
+          margin-bottom: auto; /* Keeps it fixed towards the upper half of the screen */
           padding-bottom: 0;
       }
       
       #timeSlotsContainer.open {
           width: 100%; /* Explicit full width to widen viewport */
           max-width: 100%;
-          height: 400px; /* Increased to perfectly match desktop viewport height */
+          height: 48vh; /* Expanded dynamic height to ensure slots aren't too narrow at the bottom */
+          min-height: 280px;
           margin-left: 0;
-          margin-top: 1.5rem;
+          margin-top: 1rem;
+          overflow-y: auto !important; /* Makes the "Select a date" text scroll UP with the timeslots */
+          padding-right: 4px; /* Adds a slight gap for the native mobile scrollbar */
       }
       
       #timeSlotsList {
-          height: 340px !important; /* Increased vertically to allow more slots to show */
-          overflow-y: auto; /* Enforces clean scroll bar inside the extended list */
+          height: auto !important; /* Removes inner height restriction */
+          overflow-y: visible !important; /* Transfers scrolling power completely to the parent container */
       }
 
       .time-slot-btn {
