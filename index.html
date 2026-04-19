@@ -757,7 +757,7 @@
           overflow: hidden; /* Fixed on screen, prevents the whole view from scrolling up */
       }
       #step-10 .step-content {
-          margin-top: 1vh; /* Moves the entire card slightly up vertically */
+          margin-top: -2vh; /* Moves the entire card slightly up vertically */
           margin-bottom: 0; 
           padding-bottom: 0;
           flex: 1; /* Forces the content to fill the remaining screen space */
@@ -786,15 +786,18 @@
           height: auto;
           margin-left: 0;
           margin-top: 1rem;
-          overflow-y: auto !important; 
-          padding-right: 4px; 
-          padding-bottom: 90px; /* Extra space at the bottom so the last slot clears the navigation pill */
+          overflow-y: hidden !important; /* Locks the header in place so it cannot scroll away */
+          padding-right: 0px; 
+          padding-bottom: 0px; /* Padding moved to the inner scroll list */
       }
       
       #timeSlotsList {
+          flex: 1; /* Takes all remaining space below the fixed header */
+          min-height: 0;
           height: auto !important; 
-          overflow-y: visible !important; 
-          padding-bottom: 10px; 
+          overflow-y: auto !important; /* Restores scrolling strictly to the time slots only */
+          padding-right: 4px; 
+          padding-bottom: 90px; /* Extra space at the bottom so the last slot clears the navigation pill */
       }
 
       .time-slot-btn {
@@ -1034,7 +1037,7 @@
     </div>
 
     <div class="step" id="step-10">
-      <div class="step-content" style="max-width: 900px; width: 100%; padding-top: 0; padding-bottom: 0; margin-top: 4vh; margin-bottom: auto;">
+      <div class="step-content" style="max-width: 900px; width: 100%; padding-top: 0; padding-bottom: 0; margin-top: 0vh; margin-bottom: auto;">
         <div class="flex flex-col items-center justify-start w-full">
           <img src="https://res.cloudinary.com/dobnqmfsg/image/upload/q_auto/f_auto/v1776510599/Untitled_design__3_-removebg-preview_xoxdtc.png" alt="Logo" class="w-16 mb-4 mt-0">
           <div class="flex flex-col md:flex-row items-start justify-start md:justify-center w-full gap-4">
