@@ -41,27 +41,51 @@
 
   /* 4. If we detect SAMSUNG INTERNET specifically */
   body.is-samsung-browser {
-      /* God Fix: Release the right/bottom constraints. The JS will perfectly force pixel bounds. */
-      position: fixed !important;
+      position: absolute !important; /* Kills the fixed white-tile paint bug */
       top: 0 !important;
       left: 0 !important;
       width: 100vw !important;
-      height: 100vh !important;
+      height: 100dvh !important; /* Uses dynamic height instead of strict % */
+      overflow: hidden !important;
+      --s-scale: 1;
+      --s-inv: 1;
   }
   
+  body.is-samsung-browser #form-container {
+      /* Pure CSS mathematical scaling: immune to keyboard resize bugs */
+      transform: scale(var(--s-scale));
+      transform-origin: top left;
+      width: calc(100vw * var(--s-inv)) !important; /* Replaced % with vw */
+      height: calc(100dvh * var(--s-inv)) !important; /* Replaced % with dvh */
+      position: absolute !important;
+      top: 0 !important;
+      left: 0 !important;
+      background-color: var(--bg-color); /* Form claims the background paint */
+      z-index: 10; /* Forces form on top of any browser phantom tiles */
+  }
+  
+  body.is-samsung-browser .progress-bar-wrapper {
+      transform: scale(var(--s-scale));
+      transform-origin: top left;
+      width: calc(100vw * var(--s-inv)) !important;
+      z-index: 2000; /* Ensures it stays above the new container z-index */
+  }
+
   body.is-samsung-browser .step {
-      /* Restore 100% inheritance so it exactly matches the JS-forced body dimensions */
       position: absolute !important;
       height: 100% !important;
       width: 100% !important;
       top: 0 !important;
       left: 0 !important;
-      padding-bottom: 120px !important; /* Extra padding to clear Samsung's bottom action bar */
+      padding-bottom: 120px !important; 
   }
 
   body.is-samsung-browser .nav-pill {
-      /* Push the nav pill higher to avoid Samsung's bottom toolbar */
+      /* Nav pill scales independently from its bottom anchor */
+      transform: scale(calc(0.9 * var(--s-scale))) !important;
+      transform-origin: bottom right;
       bottom: 80px !important; 
+      z-index: 2000; /* Ensures it stays above the new container z-index */
   }
 
   /* Samsung Internet specific Autofill Fix to completely remove bluish background boxes */
@@ -106,7 +130,7 @@
 
   /* The main container */
   #form-container {
-    height: 100vh;
+    height: 100%;
     width: 100%;
     position: absolute;
     top: 0;
@@ -115,7 +139,7 @@
 
   /* Each question takes up exactly one full screen securely via absolute coordinates */
   .step {
-    position: fixed;
+    position: absolute;
     top: 0;
     bottom: 0;
     left: 0;
@@ -1172,29 +1196,13 @@
               // If Samsung inflated the 10px text, calculate the exact opposite ratio
               if (computedSize > 10.1 || computedSize < 9.9) {
                   const scaleRatio = 10 / computedSize;
-                  // Apply webkit zoom to the root to neutralize the font explosion
-                  document.documentElement.style.zoom = scaleRatio;
+                  const invScale = 1 / scaleRatio;
                   
-                  // GOD FIX FOR HALF-SCREEN CUTOFF:
-                  // When the keyboard opens/closes, physical bounds break. We use JS to surgically 
-                  // force the width and height in exact pixels, inversing the zoom ratio in real-time.
-                  function forceSamsungPixelBounds() {
-                      const trueWidth = window.innerWidth / scaleRatio;
-                      const trueHeight = window.innerHeight / scaleRatio;
-                      
-                      document.body.style.setProperty('width', trueWidth + 'px', 'important');
-                      document.body.style.setProperty('height', trueHeight + 'px', 'important');
-                      
-                      const fc = document.getElementById('form-container');
-                      if (fc) {
-                          fc.style.setProperty('width', trueWidth + 'px', 'important');
-                          fc.style.setProperty('height', trueHeight + 'px', 'important');
-                      }
-                  }
-                  
-                  // Run instantly and bind to screen resizes (keyboard opening/closing)
-                  forceSamsungPixelBounds();
-                  window.addEventListener('resize', forceSamsungPixelBounds);
+                  // PURE CSS VARIABLE FIX (NO RESIZE LISTENERS):
+                  // By passing these variables to CSS, we let the browser natively calculate the layout.
+                  // This completely destroys the "half screen cut" bug caused by JS resize listeners fighting the keyboard.
+                  document.body.style.setProperty('--s-scale', scaleRatio);
+                  document.body.style.setProperty('--s-inv', invScale);
               }
           } catch(e) { console.warn("Reverse scale failed", e); }
       }
