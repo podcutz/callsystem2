@@ -1,749 +1,1833 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Schedulr - Team Management</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .sidebar-transition {
-            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        
-        .content-transition {
-            transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-        ::-webkit-scrollbar {
-            width: 4px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #000;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #222;
-            border-radius: 10px;
-        }
+<title>Shortscut Inc Form Clone</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  /* ------------------------------------------- */
+  /* DYNAMIC ENVIRONMENT OVERRIDES               */
+  /* ------------------------------------------- */
 
-        .tab-active {
-            color: #ffffff;
-            border-bottom: 2px solid #ffffff;
-        }
+  /* 1. If we detect an IN-APP BROWSER */
+  body.is-in-app-browser {
+      /* Force strict height calculation to fight WebView bugs */
+      height: 100vh !important; 
+      position: fixed !important; 
+      overflow: hidden !important;
+  }
 
-        .custom-checkbox {
-            appearance: none;
-            width: 18px;
-            height: 18px;
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 4px;
-            background: transparent;
-            cursor: pointer;
-            position: relative;
-            transition: all 0.2s;
-        }
-        .custom-checkbox:checked {
-            background: white;
-            border-color: white;
-        }
-        .custom-checkbox:checked::after {
-            content: '✓';
-            color: black;
-            font-size: 12px;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-weight: bold;
-        }
+  body.is-in-app-browser .step {
+      /* In-app browsers often ignore 'env()', so we force hard pixel fallbacks */
+      padding-top: 80px !important; 
+      padding-bottom: 120px !important;
+  }
 
-        input[type="time"]::-webkit-calendar-picker-indicator {
-            filter: invert(1);
-            cursor: pointer;
-        }
+  /* 2. If we detect specifically LINKEDIN */
+  body.is-linkedin .nav-pill {
+      /* LinkedIn's bottom bar is unusually tall, push our nav up higher */
+      bottom: 60px !important; 
+  }
 
-        /* Team View Calendar Styles */
-        .team-calendar-grid {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            gap: 1px;
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-        .team-day-cell {
-            background: black;
-            min-height: 120px;
-            padding: 10px;
-            position: relative;
-            transition: background 0.2s;
-            cursor: pointer;
-        }
-        .team-day-cell:hover {
-            background: rgba(255,255,255,0.03);
-        }
-        .team-day-cell.past {
-            opacity: 0.4;
-        }
-        .team-day-cell.selected {
-            background: rgba(255,255,255,0.08);
-            box-shadow: inset 0 0 0 1px white;
-        }
-        
-        .calendar-squeeze {
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        }
+  /* 3. If we detect standard MOBILE (but NOT an in-app browser) */
+  body.is-mobile:not(.is-in-app-browser) .step {
+      /* We can safely use advanced dynamic viewports here */
+      height: 100dvh !important; 
+  }
 
-        @keyframes pulse-red {
-            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
-            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(220, 38, 38, 0); }
-            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
-        }
-        .live-dot {
-            width: 8px;
-            height: 8px;
-            background: #ef4444;
-            border-radius: 50%;
-            animation: pulse-red 2s infinite;
-            display: inline-block;
-        }
+  /* 4. If we detect SAMSUNG INTERNET specifically */
+  body.is-samsung-browser {
+      /* God Fix: Release the right/bottom constraints. The JS will perfectly force pixel bounds. */
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+  }
+  
+  body.is-samsung-browser .step {
+      /* Restore 100% inheritance so it exactly matches the JS-forced body dimensions */
+      position: absolute !important;
+      height: 100% !important;
+      width: 100% !important;
+      top: 0 !important;
+      left: 0 !important;
+      padding-bottom: 120px !important; /* Extra padding to clear Samsung's bottom action bar */
+  }
 
-        .tag-work { background: #ffffff; color: #000; font-size: 8px; font-weight: 800; padding: 2px 4px; border-radius: 2px; }
-        .tag-off { background: #333; color: #888; font-size: 8px; font-weight: 800; padding: 2px 4px; border-radius: 2px; }
-        
-        .user-indicator {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: white;
-            display: inline-block;
-            margin-right: 2px;
-        }
+  body.is-samsung-browser .nav-pill {
+      /* Push the nav pill higher to avoid Samsung's bottom toolbar */
+      bottom: 80px !important; 
+  }
 
-        /* Booking Calendar Small */
-        .booking-calendar-grid {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            gap: 4px;
-        }
-        .booking-day {
-            aspect-ratio: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.75rem;
-            cursor: pointer;
-            border: 1px solid transparent;
-            transition: all 0.2s;
-        }
-        .booking-day:hover:not(.empty) { background: rgba(255,255,255,0.1); }
-        .booking-day.selected { background: white; color: black; font-weight: bold; }
-    </style>
+  /* Samsung Internet specific Autofill Fix to completely remove bluish background boxes */
+  body.is-samsung-browser .tf-input:-webkit-autofill,
+  body.is-samsung-browser .tf-input:-webkit-autofill:hover, 
+  body.is-samsung-browser .tf-input:-webkit-autofill:focus, 
+  body.is-samsung-browser .tf-input:-webkit-autofill:active,
+  body.is-samsung-browser .custom-dropdown-input:-webkit-autofill,
+  body.is-samsung-browser .custom-dropdown-input:-webkit-autofill:hover,
+  body.is-samsung-browser .custom-dropdown-input:-webkit-autofill:focus,
+  body.is-samsung-browser .custom-dropdown-input:-webkit-autofill:active {
+      -webkit-box-shadow: 0 0 0 1000px var(--bg-color) inset !important;
+      -webkit-text-fill-color: var(--accent-color) !important;
+      transition: background-color 5000s ease-in-out 0s !important;
+      background-color: var(--bg-color) !important;
+      background-image: none !important;
+      background-clip: padding-box !important;
+  }
+  
+  :root {
+    --bg-color: #ffffff;
+    --text-color: #000000;
+    --accent-color: #032330;
+    --input-border: rgba(0, 0, 0, 0.3);
+    --font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+
+  body, html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: var(--font-family);
+    overflow: hidden; /* Hide scrollbars for the full-screen effect */
+    position: fixed; /* Locks the viewport completely in WebViews to prevent bounce/pull-to-refresh */
+    overscroll-behavior-y: none;
+    -webkit-text-size-adjust: none !important; /* Forces total disable of inflation algorithms */
+    text-size-adjust: none !important;
+  }
+
+  /* The main container */
+  #form-container {
+    height: 100%;
+    width: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
+
+  /* Each question takes up exactly one full screen securely via absolute coordinates */
+  .step {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    opacity: 0;
+    visibility: hidden;
+    overflow-x: hidden; /* Hard lock to prevent anything spilling right of the screen */
+    overflow-y: auto; /* Enables scrolling for tall questions */
+    -webkit-overflow-scrolling: touch; /* CRUCIAL: smooth native scrolling in iOS WebViews */
+    padding-top: calc(50px + env(safe-area-inset-top)); /* Respects notches on mobile devices */
+    padding-bottom: calc(20px + env(safe-area-inset-bottom)); /* Respects home bars */
+    box-sizing: border-box;
+    /* Transition removed to prevent snapping; animations handle movement strictly */
+  }
+
+  /* Dark bluish scrollbar for tall questions */
+  .step::-webkit-scrollbar {
+    width: 6px;
+  }
+  .step::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .step::-webkit-scrollbar-thumb {
+    background: rgba(3, 35, 48, 0.4); /* Matches your accent color palette */
+    border-radius: 10px;
+  }
+  .step::-webkit-scrollbar-thumb:hover {
+    background: rgba(3, 35, 48, 0.7);
+  }
+
+  /* Class to slide the old question up and out */
+  .step.exit-up {
+    animation: slideOutUp 0.5s cubic-bezier(0.5, 0, 0.8, 0.2) forwards; /* Smoother, less exponential acceleration */
+    z-index: 5;
+  }
+
+  /* Class to slide the old question down and out */
+  .step.exit-down {
+    animation: slideOutDown 0.5s cubic-bezier(0.5, 0, 0.8, 0.2) forwards; /* Smoother, less exponential acceleration */
+    z-index: 5;
+  }
+
+  @keyframes slideOutUp {
+    0% {
+      opacity: 1;
+      transform: translateY(0);
+      visibility: visible;
+    }
+    70% {
+      opacity: 0.3; /* Fades to zero non-linearly right as it reaches the screen border */
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-100vh); /* crosses the top border completely */
+      visibility: hidden;
+    }
+  }
+
+  @keyframes slideOutDown {
+    0% {
+      opacity: 1;
+      transform: translateY(0);
+      visibility: visible;
+    }
+    70% {
+      opacity: 0.3; /* Fades to zero non-linearly right as it reaches the screen border */
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(100vh); /* crosses the bottom border completely */
+      visibility: hidden;
+    }
+  }
+
+  .step.active {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+    z-index: 10;
+    animation: blurFadeOut 0.8s ease forwards;
+  }
+
+  @keyframes blurFadeOut {
+    0% {
+      filter: blur(4px); /* Slightly reduced blur */
+    }
+    100% {
+      filter: blur(0px);
+    }
+  }
+
+  
+  /* Set initial state for the line-by-line elements */
+  .step .step-content > * {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  /* Keep children fully visible while the parent container fades and slides out */
+  .step.exit-up .step-content > *,
+  .step.exit-down .step-content > * {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Trigger the drift-up animation when the step becomes active (forward) */
+  .step.active:not(.reverse) .step-content > * {
+    animation: fadeUp 0.6s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+  }
+
+  /* Trigger the drift-down animation when the step becomes active (backward) */
+  .step.active.reverse .step-content > * {
+    animation: fadeDown 0.6s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+  }
+
+  /* Stagger the delays so they appear line-by-line quickly */
+  .step.active .step-content > *:nth-child(1) { animation-delay: 0.1s; }
+  .step.active .step-content > *:nth-child(2) { animation-delay: 0.2s; }
+  .step.active .step-content > *:nth-child(3) { animation-delay: 0.3s; }
+  .step.active .step-content > *:nth-child(4) { animation-delay: 0.4s; }
+  .step.active .step-content > *:nth-child(5) { animation-delay: 0.5s; }
+  .step.active .step-content > *:nth-child(6) { animation-delay: 0.6s; }
+
+  @keyframes fadeUp {
+    0% {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fadeDown {
+    0% {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .step-content {
+    width: 100%;
+    max-width: 900px;
+    padding: 40px;
+    margin: auto 0; /* Auto margin centers vertically, preventing top cutoff on overflow */
+    flex-shrink: 0; /* Prevents content squishing on small screens */
+    box-sizing: border-box;
+  }
+
+  .question-header {
+    font-size: 20px;
+    font-weight: 400;
+    line-height: 1.4;
+    margin-bottom: 10px;
+    display: flex;
+  }
+
+  
+  .question-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--accent-color);
+    color: var(--bg-color);
+    min-width: 18px;
+    height: 20px;
+    border-radius: 7px 4px 7px 4px;
+    margin-right: 12px;
+    font-size: 11px;
+    font-weight: bold;
+    flex-shrink: 0;
+    margin-top: 4px;
+    margin-bottom: 6px;
+    padding: 0 2px;
+  }
+
+  /* Fix for Browser Autofill blue background issue (Enhanced for In-App WebViews like Slack) */
+  .tf-input:-webkit-autofill,
+  .tf-input:-webkit-autofill:hover, 
+  .tf-input:-webkit-autofill:focus, 
+  .tf-input:-webkit-autofill:active,
+  .custom-dropdown-input:-webkit-autofill {
+    -webkit-box-shadow: 0 0 0 1000px var(--bg-color) inset !important;
+    -webkit-text-fill-color: var(--accent-color) !important;
+    background-clip: content-box !important;
+    border-radius: 0;
+    transition: background-color 5000s ease-in-out 0s;
+  }
+
+  .description {
+    font-size: 18px;
+    color: rgba(0, 0, 0, 0.6);
+    margin-left: 35px;
+    margin-bottom: 30px;
+  }
+
+  .input-wrapper {
+    margin-left: 35px;
+    margin-bottom: 30px;
+    width: 100%;
+    max-width: 750px;
+  }
+
+  .input-label {
+    display: block;
+    font-size: 18px;
+    color: var(--text-color);
+    margin-bottom: 8px;
+  }
+
+  
+  .tf-input {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box; /* Forces padding to stay within screen limits */
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--input-border);
+    color: var(--accent-color);
+    font-size: 24px;
+    padding: 10px 0;
+    outline: none;
+    -webkit-appearance: none; /* Removes mobile default styles causing black lines */
+    border-radius: 0; /* Prevents edge artifacts on mobile browsers */
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .tf-input:focus {
+    outline: none !important;
+    border-bottom: 1px solid var(--input-border);
+    box-shadow: 0 1px 0 0 var(--accent-color);
+  }
+
+  .tf-input::placeholder {
+    color: rgba(0, 0, 0, 0.3);
+  }
+
+  .button-wrapper {
+    margin-left: 35px;
+    margin-top: 30px;
+    display: flex;
+    align-items: center;
+  }
+
+  .btn-submit {
+    background-color: var(--accent-color);
+    color: rgba(255, 255, 255, 0.85);
+    border: none;
+    padding: 10px 20px;
+    font-size: 16px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.2s ease, transform 0.2s ease, color 0.2s ease;
+  }
+
+  .btn-submit:hover {
+    background-color: #021720;
+    transform: scale(1.02);
+    color: #ffffff;
+  }
+
+  .hint {
+    font-size: 12px;
+    color: rgba(0, 0, 0, 0.5);
+    margin-left: 15px;
+  }
+
+  /* Multiple Choice Options */
+  .choice-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-left: 35px;
+    margin-bottom: 30px;
+    max-width: 350px;
+  }
+
+  .choice-label {
+    display: flex;
+    align-items: center;
+    background-color: rgba(3, 35, 48, 0.03); 
+    border: 1px solid rgba(3, 35, 48, 0.15); 
+    border-radius: 25px; 
+    padding: 10px 20px; 
+    cursor: pointer;
+    transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    font-size: 18px; 
+    color: var(--accent-color);
+  }
+
+  .choice-label:hover {
+    transform: scale(1.01);
+    background-color: rgba(3, 35, 48, 0.08); 
+  }
+
+  .choice-label input[type="radio"] {
+    opacity: 0;
+    position: absolute;
+    width: 0;
+    height: 0;
+  }
+
+  .choice-letter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px; 
+    height: 20px; 
+    border: 1px solid var(--accent-color);
+    border-radius: 50%;
+    margin-right: 12px;
+    font-size: 12px; 
+    font-weight: bold;
+    color: var(--accent-color);
+    background-color: #fff;
+    transition: all 0.2s ease;
+  }
+
+  .choice-label:has(input[type="radio"]:checked) {
+    background-color: #ffffff;
+    border-color: var(--accent-color);
+    box-shadow: 0 2px 8px rgba(3, 35, 48, 0.1);
+  }
+  
+  .choice-label:has(input[type="radio"]:checked) .choice-letter {
+    background-color: var(--accent-color);
+    color: #fff;
+  }
+
+  /* Q5 Scale Container */
+  .scale-container {
+    display: flex;
+    gap: 12px;
+    margin-left: 35px;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+    max-width: 800px;
+  }
+
+  .scale-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    background-color: rgba(3, 35, 48, 0.03);
+    border: 1px solid rgba(3, 35, 48, 0.15);
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 16px;
+    color: var(--accent-color);
+    transition: all 0.2s ease;
+  }
+  .scale-label:hover {
+    transform: scale(1.05);
+    background-color: rgba(3, 35, 48, 0.08);
+  }
+  .scale-label input[type="radio"] {
+    opacity: 0;
+    position: absolute;
+    width: 0;
+    height: 0;
+  }
+  .scale-label:has(input[type="radio"]:checked) {
+    background-color: var(--accent-color);
+    color: #fff;
+    border-color: var(--accent-color);
+  }
+
+  /* Q6 Yes/No Descriptive */
+  .statement-list {
+    margin-left: 35px;
+    margin-bottom: 20px;
+    font-size: 20px; /* Matches the question header text size */
+    color: var(--text-color);
+    max-width: 700px;
+    line-height: 1.5;
+  }
+  .statement-list p { margin: 8px 0; }
+
+  /* Q8 Custom Dropdown */
+  .custom-dropdown-container {
+    margin-left: 35px;
+    margin-bottom: 30px;
+    width: 100%;
+    max-width: 750px;
+    position: relative;
+    z-index: 100;
+  }
+  .custom-dropdown-header {
+    display: flex;
+    align-items: center;
+    position: relative;
+  }
+  .custom-dropdown-input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--input-border);
+    color: var(--accent-color);
+    font-size: 24px;
+    padding: 10px 0;
+    outline: none;
+    -webkit-appearance: none; /* Removes mobile default styles causing black lines */
+    border-radius: 0; /* Prevents edge artifacts on mobile browsers */
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  }
+  .custom-dropdown-input:focus {
+    outline: none !important;
+    border-bottom: 1px solid var(--input-border);
+    box-shadow: 0 1px 0 0 var(--accent-color);
+  }
+  .custom-dropdown-input::placeholder {
+    color: rgba(0, 0, 0, 0.3);
+  }
+  .custom-dropdown-icon {
+    position: absolute;
+    right: 0;
+    bottom: 12px;
+    color: var(--accent-color);
+    pointer-events: none;
+  }
+  .custom-dropdown-list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 10000;
+    background-color: var(--bg-color);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    border-radius: 12px;
+    margin-top: 8px;
+    padding: 15px;
+    max-height: 40vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    border: 1px solid rgba(3, 35, 48, 0.1);
+  }
+  .custom-dropdown-list::-webkit-scrollbar {
+    width: 8px;
+  }
+  .custom-dropdown-list::-webkit-scrollbar-track {
+    background: rgba(3, 35, 48, 0.05);
+    border-radius: 10px;
+    margin: 15px 0;
+    border-right: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  .custom-dropdown-list::-webkit-scrollbar-thumb {
+    background: var(--accent-color);
+    border-radius: 10px;
+    border-right: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  .dropdown-item {
+    display: flex;
+    align-items: center;
+    background-color: rgba(3, 35, 48, 0.03);
+    border: 1px solid rgba(3, 35, 48, 0.15);
+    border-radius: 25px;
+    padding: 14px 20px;
+    font-size: 18px;
+    color: var(--accent-color);
+    cursor: pointer;
+    transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+  }
+  .dropdown-item:hover {
+    transform: scale(1.01);
+    background-color: #ffffff;
+    border-color: rgba(3, 35, 48, 0.2);
+    box-shadow: 0 2px 8px rgba(3, 35, 48, 0.05);
+  }
+
+  /* Progress Bar */
+  .progress-bar-wrapper {
+    position: fixed;
+    top: calc(3px + env(safe-area-inset-top)); /* Safe area for notches in WebViews */
+    left: 4px;
+    right: 4px;
+    height: 4px;
+    background-color: rgba(3, 35, 48, 0.15);
+    border-radius: 4px;
+    z-index: 1000;
+    pointer-events: none;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background-color: var(--accent-color);
+    border-radius: 4px;
+    width: 0%;
+    transition: width 0.4s ease;
+  }
+
+  /* Navigation Pill (Bottom Right) */
+  .nav-pill {
+    position: fixed;
+    bottom: calc(30px + env(safe-area-inset-bottom)); /* Safe area for iOS home bar */
+    right: 35px;
+    display: flex;
+    background-color: var(--accent-color);
+    border-radius: 8px;
+    overflow: hidden;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+  
+  .nav-btn {
+    background-color: transparent;
+    border: none;
+    color: #ffffff;
+    padding: 10px 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s ease, opacity 0.2s ease;
+  }
+  
+  .nav-btn:hover:not(:disabled) {
+    background-color: rgba(255, 255, 255, 0.15);
+  }
+  
+  .nav-btn.up {
+    border-right: 2px solid var(--bg-color); /* Creates the clean separation line */
+  }
+  
+  .nav-btn svg {
+    width: 24px;
+    height: 24px;
+  }
+  
+  
+  .nav-btn:disabled {
+    color: #888888;
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  /* Booking Calendar Custom Styles */
+  .booking-calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .booking-day { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; cursor: pointer; border: 1px solid transparent; transition: all 0.2s; border-radius: 6px; }
+  .booking-day:hover:not(.empty) { background: rgba(3, 35, 48, 0.08); }
+  .booking-day.selected { background: var(--accent-color); color: var(--bg-color); font-weight: bold; }
+  .booking-day.empty { pointer-events: none; }
+  .booking-day.disabled { opacity: 0.2; cursor: not-allowed; pointer-events: none; }
+
+  .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+  .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+  .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(3, 35, 48, 0.2); border-radius: 10px; }
+  
+  .mobile-break {
+      display: none;
+  }
+
+  #timeSlotsContainer {
+      transition: height 0.5s ease-in-out, opacity 0.5s ease-in-out, max-width 0.5s ease-in-out, margin 0.5s ease-in-out;
+      max-width: 0;
+      height: 0; /* Explicit height fixes transition jitter */
+      opacity: 0;
+      overflow: hidden;
+  }
+  #timeSlotsContainer.open {
+      max-width: 400px;
+      height: 400px; /* Explicit desktop height */
+      opacity: 1;
+      margin-left: 2rem;
+  }
+
+  /* --- Mobile Layout Optimizations --- */
+  @media (max-width: 768px) {
+      /* Center questions on the vertical axis */
+      .step {
+          align-items: center;
+          justify-content: flex-start; /* Allows natural flow if content overflows */
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch; /* Native mobile webview scroll physics */
+          /* Removed buggy 100dvh; relying on absolute top/bottom stretching from base class */
+          padding-top: calc(60px + env(safe-area-inset-top)); /* Mandatory restricted top area + notch safe zone */
+      }
+      
+      .step-content {
+          padding: 24px 20px;
+          margin: auto 0; /* Ensures it stays vertically centered but scrolls safely */
+          padding-bottom: calc(100px + env(safe-area-inset-bottom)); /* Prevents nav pill from hiding content */
+          flex-shrink: 0;
+      }
+
+      /* Stack question number and text */
+      .question-header {
+          flex-direction: column;
+          align-items: flex-start;
+      }
+      
+      .question-number {
+          margin-bottom: 12px;
+          margin-right: 0;
+          
+          /* MOBILE SPECIFIC SETTINGS - TWEAK THESE FOR MOBILE INDEPENDENTLY */
+          min-width: 18px; 
+          height: 20px; 
+          border-radius: 7px 4px 7px 4px; /* Corner roundness (Top-Left, Top-Right, Bottom-Right, Bottom-Left) */
+          font-size: 11px; 
+          padding: 0 2px;
+      }
+
+      /* Make OK buttons stretch across mobile screen */
+      .button-wrapper {
+          width: 100%;
+          flex-direction: column;
+          align-items: stretch;
+      }
+      .btn-submit {
+          width: 100%;
+          text-align: center;
+          display: flex;
+          justify-content: center;
+      }
+      .hint {
+          display: none; /* Hides 'press Enter' text on mobile completely */
+      }
+
+      /* Snap all elements to the left edge of the centered imaginary container safely */
+      .description, 
+      .input-wrapper, 
+      .button-wrapper, 
+      .choice-container, 
+      .statement-list, 
+      .custom-dropdown-container {
+          margin-left: 0;
+          width: 100%;
+          max-width: 100%; /* Safety guard against screen overflow */
+          box-sizing: border-box; /* Forces padding/borders inward */
+          word-wrap: break-word; /* Breaks long text so it doesn't push off screen */
+      }
+
+      /* Perfect 6-5 staggered pyramid layout for Q5 scale on mobile */
+      .scale-container {
+          margin-left: 0;
+          width: 100%;
+          justify-content: center; 
+          gap: 6px; /* Balanced gap to allow larger circles */
+      }
+      .scale-label {
+          width: 52px; /* Increased to fully and easily occupy mobile screen width */
+          height: 52px;
+          font-size: 20px;
+      }
+      .mobile-break {
+          display: block;
+          flex-basis: 100%;
+          height: 0;
+          margin: 0;
+      }
+
+      /* Shrink nav pill slightly for mobile */
+      .nav-pill {
+          bottom: calc(20px + env(safe-area-inset-bottom));
+          right: 20px;
+          transform: scale(0.9);
+          transform-origin: bottom right;
+      }
+      
+      /* Mobile Calendar & Time Slot Adjustments */
+      #step-10 {
+          overflow: hidden; /* Fixed on screen, prevents the whole view from scrolling up */
+      }
+      #step-10 .step-content {
+          margin-top: 0;
+          padding-bottom: 0;
+      }
+      
+      #timeSlotsContainer.open {
+          width: 100%; /* Explicit full width to widen viewport */
+          max-width: 100%;
+          height: 400px; /* Increased to perfectly match desktop viewport height */
+          margin-left: 0;
+          margin-top: 1.5rem;
+      }
+      
+      #timeSlotsList {
+          height: 340px !important; /* Increased vertically to allow more slots to show */
+          overflow-y: auto; /* Enforces clean scroll bar inside the extended list */
+      }
+
+      .time-slot-btn {
+          padding: 10px;
+      }
+  }
+</style>
 </head>
-<body class="bg-black text-white font-sans min-h-screen overflow-x-hidden">
+<body>
 
-    <!-- Sidebar -->
-    <aside id="sidebar" class="sidebar-transition fixed top-0 left-0 h-full bg-black border-r border-white/10 z-50 w-64">
-        <div class="flex flex-col h-full">
-            <div class="p-6 flex items-center justify-between h-20">
-                <div class="flex items-center space-x-3 overflow-hidden">
-                    <div class="w-8 h-8 bg-white rounded flex-shrink-0 flex items-center justify-center">
-                        <span class="font-bold text-black text-xs">S</span>
-                    </div>
-                    <span class="nav-text font-bold text-xl tracking-tighter whitespace-nowrap">SCHEDULR</span>
-                </div>
-                <button onclick="toggleSidebar()" class="p-2 rounded-lg hover:bg-white/10 transition-colors focus:outline-none">
-                    <svg id="toggleIcon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white/50 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-                    </svg>
-                </button>
-            </div>
+<form id="main-form" action="/your-backend-api" method="POST">
+  <div class="progress-bar-wrapper">
+    <div class="progress-bar-fill" id="progress-bar"></div>
+  </div>
+  
+  <div class="nav-pill">
+    <button type="button" class="nav-btn up" id="nav-up" aria-label="Previous">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+    </button>
+    <button type="button" class="nav-btn down" id="nav-down" aria-label="Next">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </button>
+  </div>
 
-            <nav class="flex-1 px-4 space-y-1 mt-4 overflow-y-auto">
-                <a href="#" id="nav-dashboard" onclick="showPage('dashboard')" class="flex items-center p-3 rounded-lg bg-white text-black transition-all group">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                    </svg>
-                    <span class="nav-text font-semibold text-sm">Dashboard</span>
-                </a>
-                <a href="#" id="nav-availability" onclick="showPage('availability')" class="flex items-center p-3 rounded-lg text-white/40 hover:bg-white/5 hover:text-white transition-all group">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span class="nav-text font-medium text-sm">Availability</span>
-                </a>
-                <a href="#" id="nav-schedule" onclick="showPage('schedule')" class="flex items-center p-3 rounded-lg text-white/40 hover:bg-white/5 hover:text-white transition-all group">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <span class="nav-text font-medium text-sm">Schedule Call</span>
-                </a>
-                <a href="#" id="nav-teamview" onclick="showPage('teamview')" class="flex items-center p-3 rounded-lg text-white/40 hover:bg-white/5 hover:text-white transition-all group">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                    <span class="nav-text font-medium text-sm">Team View</span>
-                </a>
-            </nav>
+  <div id="form-container">
 
-            <div class="p-4 border-t border-white/5">
-                <div class="flex items-center p-2 rounded-lg hover:bg-white/5 cursor-pointer overflow-hidden transition-colors">
-                    <div class="w-9 h-9 rounded bg-white/10 flex-shrink-0 flex items-center justify-center text-xs font-bold border border-white/10">N</div>
-                    <div class="ml-3 nav-text whitespace-nowrap">
-                        <p class="text-xs font-bold uppercase tracking-wider">Noman</p>
-                        <p class="text-[10px] text-white/40">ADMINISTRATOR</p>
-                    </div>
-                </div>
-            </div>
+    <div class="step active" id="step-1">
+      <div class="step-content">
+        <div class="question-header">
+          <span class="question-number">1</span>
+          <span>We only onboard two new clients per month. Please fill out this form if you are serious about organic content </span>
         </div>
-    </aside>
-
-    <!-- Main Content Area -->
-    <main id="mainContent" class="content-transition min-h-screen ml-64 flex flex-col">
-        <header class="p-8 pb-6 bg-black flex justify-between items-end">
-            <h1 id="page-title" class="text-4xl font-bold tracking-tighter text-white">Welcome back, Noman</h1>
-            <div id="team-view-filters" class="hidden flex items-center space-x-4">
-                <span class="text-[10px] text-white/30 uppercase font-black tracking-widest">Filter Editors</span>
-                <div id="filter-container" class="flex space-x-2"></div>
-            </div>
-        </header>
-
-        <div class="w-full h-[1px] bg-white/10"></div>
-
-        <!-- DASHBOARD PAGE -->
-        <div id="page-dashboard" class="page">
-            <section class="p-8 flex-1 bg-black">
-                <div class="max-w-4xl">
-                    <h2 class="text-xl font-bold uppercase tracking-widest text-white mb-6">Meetings</h2>
-                    <div class="bg-black rounded-xl border border-white/10 overflow-hidden shadow-[0_0_50px_rgba(255,255,255,0.02)]">
-                        <div class="flex border-b border-white/10 px-6 pt-2">
-                            <button onclick="switchTab('upcoming')" id="tab-upcoming" class="px-4 py-4 text-xs font-bold uppercase tracking-widest transition-all tab-active">Upcoming Sessions</button>
-                            <button onclick="switchTab('past')" id="tab-past" class="px-4 py-4 text-xs font-bold uppercase tracking-widest text-white/30 hover:text-white transition-all">Past</button>
-                        </div>
-                        <div id="content-upcoming" class="p-4 space-y-2">
-                            <div class="flex items-center justify-between p-4 bg-white/5 rounded border border-white/5 hover:bg-white/[0.08] transition-all group">
-                                <div class="flex items-center space-x-4">
-                                    <div class="w-10 h-10 rounded bg-white text-black flex items-center justify-center font-black text-sm">15</div>
-                                    <div>
-                                        <h4 class="font-bold text-sm text-white uppercase tracking-tight">Strategy Alignment Call</h4>
-                                        <p class="text-[10px] text-white/40 uppercase tracking-widest font-medium">10:00 AM - 11:00 AM</p>
-                                    </div>
-                                </div>
-                                <button class="bg-white text-black text-[10px] px-4 py-2 font-black uppercase tracking-widest">Join</button>
-                            </div>
-                            <div class="flex items-center justify-between p-4 bg-white/5 rounded border border-white/5 hover:bg-white/[0.08] transition-all group opacity-80">
-                                <div class="flex items-center space-x-4">
-                                    <div class="w-10 h-10 rounded bg-white/10 text-white flex items-center justify-center font-black text-sm">16</div>
-                                    <div>
-                                        <h4 class="font-bold text-sm text-white uppercase tracking-tight">Design System Audit</h4>
-                                        <p class="text-[10px] text-white/40 uppercase tracking-widest font-medium">01:30 PM - 02:30 PM</p>
-                                    </div>
-                                </div>
-                                <span class="text-[9px] text-white/30 font-bold uppercase mr-4">Pending</span>
-                            </div>
-                        </div>
-                        <div id="content-past" class="hidden p-4 space-y-2">
-                             <div class="flex items-center justify-between p-4 bg-white/5 rounded border border-white/5 grayscale">
-                                <div class="flex items-center space-x-4">
-                                    <div class="w-10 h-10 rounded bg-white/5 text-white/40 flex items-center justify-center font-black text-sm">05</div>
-                                    <div>
-                                        <h4 class="font-bold text-sm text-white/40 uppercase tracking-tight">Financial Kickoff Q1</h4>
-                                        <p class="text-[10px] text-white/20 uppercase tracking-widest font-medium">Completed</p>
-                                    </div>
-                                </div>
-                                <button class="text-white/20 text-[10px] px-4 py-2 font-black uppercase tracking-widest border border-white/5">Details</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
+        <div class="description">we'll reach out to see if it's a fit.</div>
+        
+        <div class="input-wrapper">
+          <label class="input-label">First name </label>
+          <input type="text" name="first_name" class="tf-input" placeholder="Jane" required autofocus>
         </div>
-
-        <!-- AVAILABILITY PAGE -->
-        <div id="page-availability" class="page hidden">
-            <section class="p-8 flex-1 bg-black">
-                <div class="max-w-4xl">
-                    <div class="flex items-center justify-between mb-6">
-                        <div>
-                            <h2 class="text-xl font-bold uppercase tracking-widest text-white">Availability Editor</h2>
-                            <p class="text-[10px] text-white/40 uppercase tracking-widest mt-1">Configure your active working hours</p>
-                        </div>
-                        <button onclick="showSuccessScreen('Availability Updated', 'Your working hours have been saved')" class="bg-white text-black text-[10px] px-6 py-2 font-black uppercase tracking-widest">Save Changes</button>
-                    </div>
-
-                    <div class="mb-8 p-6 bg-white/[0.03] rounded-xl border border-white/10 flex items-center justify-between">
-                        <div class="flex items-center space-x-4">
-                            <div class="w-10 h-10 rounded bg-white/10 flex items-center justify-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
-                            </div>
-                            <div>
-                                <h3 class="text-sm font-bold uppercase tracking-tight">Global Schedule</h3>
-                                <p class="text-[10px] text-white/40 uppercase tracking-widest">Sync all active days</p>
-                            </div>
-                        </div>
-                        <div class="flex items-center space-x-3">
-                            <span class="text-[10px] font-bold text-white/30 uppercase tracking-widest">Apply All</span>
-                            <input type="checkbox" class="custom-checkbox" onchange="toggleAllDays(this.checked)">
-                        </div>
-                    </div>
-
-                    <div class="space-y-3" id="daily-schedules">
-                        <div class="day-row p-5 bg-black border border-white/10 rounded-xl flex items-center justify-between transition-all" data-day="monday">
-                            <div class="flex items-center space-x-6 w-1/3">
-                                <input type="checkbox" checked class="custom-checkbox day-toggle" onchange="updateRowState(this)">
-                                <span class="text-xs font-bold uppercase tracking-widest min-w-[100px]">Monday</span>
-                            </div>
-                            <div class="flex items-center space-x-4 flex-1 time-controls">
-                                <input type="time" value="09:00" class="bg-black border border-white/20 rounded-md px-3 py-2 text-xs text-white">
-                                <span class="text-white/20">—</span>
-                                <input type="time" value="17:00" class="bg-black border border-white/20 rounded-md px-3 py-2 text-xs text-white">
-                            </div>
-                            <div class="status-indicator text-[10px] text-white font-bold uppercase tracking-tighter bg-white/10 px-2 py-1 rounded">Active</div>
-                        </div>
-                    </div>
-                </div>
-            </section>
+        <div class="input-wrapper">
+          <label class="input-label">Last name </label>
+          <input type="text" name="last_name" class="tf-input" placeholder="Smith" required>
         </div>
-
-        <!-- SCHEDULE CALL PAGE -->
-        <div id="page-schedule" class="page hidden flex-1 flex flex-col">
-            <section class="p-8 flex-1 bg-black">
-                <div id="team-gallery" class="max-w-6xl">
-                    <h2 class="text-xl font-bold uppercase tracking-widest text-white mb-6">Select a Team Member</h2>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4"></div>
-                </div>
-
-                <div id="booking-interface" class="max-w-4xl hidden mx-auto mt-10">
-                    <button onclick="closeBooking()" class="flex items-center text-[10px] text-white/40 uppercase tracking-widest font-bold mb-8 hover:text-white transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-                        Back to Team
-                    </button>
-                    <div class="grid grid-cols-1 md:grid-cols-12 gap-8">
-                        <div class="md:col-span-4 border-r border-white/10 pr-8">
-                            <div id="b-avatar" class="w-20 h-20 rounded bg-white text-black flex items-center justify-center font-black text-2xl mb-4"></div>
-                            <h2 id="b-name" class="text-2xl font-bold tracking-tight"></h2>
-                            <p id="b-role" class="text-[10px] text-white/40 uppercase tracking-[0.2em] mb-6"></p>
-                        </div>
-                        <div class="md:col-span-8 flex flex-col md:flex-row gap-8">
-                            <div class="flex-1">
-                                <h3 class="text-xs font-bold uppercase tracking-widest mb-4">Select Date</h3>
-                                <div class="bg-white/[0.03] border border-white/10 rounded-xl p-4">
-                                    <div class="booking-calendar-grid text-[10px] text-white/30 uppercase font-bold mb-2 text-center">
-                                        <div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div>
-                                    </div>
-                                    <div id="b-calendar-days" class="booking-calendar-grid"></div>
-                                </div>
-                            </div>
-                            <div class="w-full md:w-48">
-                                <h3 class="text-xs font-bold uppercase tracking-widest mb-4">Times</h3>
-                                <div id="b-time-slots" class="space-y-2 overflow-y-auto max-h-[300px]">
-                                    <p class="text-[10px] text-white/30 uppercase">Pick a date</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
+        <div class="input-wrapper">
+          <label class="input-label">Company</label>
+          <input type="text" name="company" class="tf-input" placeholder="Acme Corporation" required>
         </div>
-
-        <!-- TEAM VIEW PAGE -->
-        <div id="page-teamview" class="page hidden flex-1 flex flex-col overflow-hidden">
-            <div class="flex h-full">
-                <div id="team-calendar-container" class="calendar-squeeze flex-1 p-8 overflow-y-auto">
-                    <div class="flex items-center justify-between mb-8">
-                        <h2 class="text-xl font-bold uppercase tracking-widest">March 2024</h2>
-                        <div class="flex items-center space-x-2">
-                            <div class="flex items-center space-x-2 mr-6"><span class="tag-work">WORK</span><span class="tag-off">OFF</span></div>
-                            <button class="p-2 border border-white/10 rounded"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg></button>
-                            <button class="p-2 border border-white/10 rounded"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg></button>
-                        </div>
-                    </div>
-                    <div class="team-calendar-grid uppercase text-[10px] font-black tracking-widest text-white/40 text-center mb-0 bg-transparent border-0">
-                        <div class="py-4">Sun</div><div class="py-4">Mon</div><div class="py-4">Tue</div><div class="py-4">Wed</div><div class="py-4">Thu</div><div class="py-4">Fri</div><div class="py-4">Sat</div>
-                    </div>
-                    <div id="team-grid" class="team-calendar-grid"></div>
-                </div>
-                <div id="call-sidelist" class="hidden w-0 opacity-0 border-l border-white/10 bg-black flex flex-col calendar-squeeze overflow-hidden">
-                    <div class="p-6 border-b border-white/10 flex items-center justify-between">
-                        <div><h3 id="side-date-title" class="text-lg font-bold"></h3><p class="text-[9px] text-white/40 uppercase tracking-widest">Chronological Log</p></div>
-                        <button onclick="closeCallList()" class="p-2 hover:bg-white/5 rounded"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
-                    </div>
-                    <div id="call-log-container" class="flex-1 overflow-y-auto p-6 space-y-6">
-                        <div id="live-call-section" class="hidden">
-                            <div class="flex items-center space-x-2 mb-4"><div class="live-dot"></div><span class="text-[10px] text-red-500 font-black uppercase tracking-widest">Live Now</span></div>
-                            <div id="live-content"></div>
-                            <div class="h-[1px] bg-white/10 my-6"></div>
-                        </div>
-                        <div id="chronological-calls" class="space-y-4"></div>
-                    </div>
-                </div>
-            </div>
+        
+        <div class="button-wrapper">
+          <button type="button" class="btn-submit next-btn">OK</button>
+          <span class="hint">press <strong>Enter ↵</strong></span>
         </div>
-<!-- GLOBAL SUCCESS OVERLAY -->
-<div id="success-overlay" class="fixed inset-0 bg-black flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-500 z-[999]">
-    <div class="text-center">
-        <div class="w-20 h-20 rounded-full bg-white text-black flex items-center justify-center text-3xl font-black mx-auto mb-6">
-            ✓
-        </div>
-        <h2 id="success-title" class="text-2xl font-bold uppercase tracking-widest mb-2"></h2>
-        <p id="success-sub" class="text-[11px] text-white/40 uppercase tracking-widest"></p>
+      </div>
     </div>
-</div>
-    </main>
 
-    <script>
-function showSuccessScreen(title, subtitle) {
-    const overlay = document.getElementById('success-overlay');
-    const mainContent = document.getElementById('mainContent');
+    <div class="step" id="step-2">
+      <div class="step-content">
+        <div class="question-header">
+          <span class="question-number">2</span>
+          <span>What's your company website?</span>
+        </div>
+        
+        <div class="input-wrapper">
+          <input type="url" name="website" class="tf-input" placeholder="https://" required>
+        </div>
+        
+        <div class="button-wrapper">
+          <button type="button" class="btn-submit next-btn">OK</button>
+          <span class="hint">press <strong>Enter ↵</strong></span>
+        </div>
+      </div>
+    </div>
 
-    // Attach overlay only to the active main content
-    mainContent.appendChild(overlay);
+    <div class="step" id="step-3">
+      <div class="step-content">
+        <div class="question-header">
+          <span class="question-number">3</span>
+          <span>What is the size of your company? </span>
+        </div>
+        
+        
+        <div class="choice-container">
+          <label class="choice-label">
+            <input type="radio" name="company_size" value="Small" required>
+            <span class="choice-letter">A</span>
+            <span class="choice-text">Small (1-50 employees)</span>
+          </label>
+          <label class="choice-label">
+            <input type="radio" name="company_size" value="Medium" required>
+            <span class="choice-letter">B</span>
+            <span class="choice-text">Medium (51-500 employees)</span>
+          </label>
+          <label class="choice-label">
+            <input type="radio" name="company_size" value="Large" required>
+            <span class="choice-letter">C</span>
+            <span class="choice-text">Large (501+ employees)</span>
+          </label>
+        </div>
+        
+        <div class="button-wrapper">
+          <button type="button" class="btn-submit next-btn">OK</button>
+          <span class="hint">press <strong>Enter ↵</strong></span>
+        </div>
+      </div>
+    </div>
 
-    document.getElementById('success-title').innerText = title;
-    document.getElementById('success-sub').innerText = subtitle;
+    <div class="step" id="step-4">
+      <div class="step-content">
+        <div class="question-header">
+          <span class="question-number">4</span>
+          <span>What is your company's annual revenue? </span>
+        </div>
+        <div class="choice-container">
+          <label class="choice-label"><input type="radio" name="revenue" value="under $5M" required><span class="choice-letter">A</span><span class="choice-text">under $5M</span></label>
+          <label class="choice-label"><input type="radio" name="revenue" value="$5M-10M" required><span class="choice-letter">B</span><span class="choice-text">$5M-10M</span></label>
+          <label class="choice-label"><input type="radio" name="revenue" value="$10M - $25M" required><span class="choice-letter">C</span><span class="choice-text">$10M - $25M</span></label>
+          <label class="choice-label"><input type="radio" name="revenue" value="$25M - $100M" required><span class="choice-letter">D</span><span class="choice-text">$25M - $100M</span></label>
+          <label class="choice-label"><input type="radio" name="revenue" value="$100M - $1B" required><span class="choice-letter">E</span><span class="choice-text">$100M - $1B</span></label>
+          <label class="choice-label"><input type="radio" name="revenue" value="1B+" required><span class="choice-letter">F</span><span class="choice-text">1B+</span></label>
+        </div>
+        <div class="button-wrapper">
+          <button type="button" class="btn-submit next-btn">OK</button>
+          <span class="hint">press <strong>Enter ↵</strong></span>
+        </div>
+      </div>
+    </div>
 
-    overlay.classList.remove('pointer-events-none');
-    overlay.style.opacity = "1";
+    <div class="step" id="step-5">
+      <div class="step-content">
+        <div class="question-header">
+          <span class="question-number">5</span>
+          <span>How committed are you to investing in long-term success with organic content? </span>
+        </div>
+        <div class="scale-container">
+          <label class="scale-label"><input type="radio" name="commitment" value="0" required>0</label>
+          <label class="scale-label"><input type="radio" name="commitment" value="1" required>1</label>
+          <label class="scale-label"><input type="radio" name="commitment" value="2" required>2</label>
+          <label class="scale-label"><input type="radio" name="commitment" value="3" required>3</label>
+          <label class="scale-label"><input type="radio" name="commitment" value="4" required>4</label>
+          <label class="scale-label"><input type="radio" name="commitment" value="5" required>5</label>
+          <div class="mobile-break"></div>
+          <label class="scale-label"><input type="radio" name="commitment" value="6" required>6</label>
+          <label class="scale-label"><input type="radio" name="commitment" value="7" required>7</label>
+          <label class="scale-label"><input type="radio" name="commitment" value="8" required>8</label>
+          <label class="scale-label"><input type="radio" name="commitment" value="9" required>9</label>
+          <label class="scale-label"><input type="radio" name="commitment" value="10" required>10</label>
+        </div>
+        <div class="button-wrapper">
+          <button type="button" class="btn-submit next-btn">OK</button>
+          <span class="hint">press <strong>Enter ↵</strong></span>
+        </div>
+      </div>
+    </div>
 
-    // Hide after 3 seconds
-    setTimeout(() => {
-        overlay.style.opacity = "0";
-        setTimeout(() => {
-            overlay.classList.add('pointer-events-none');
-        }, 500); // matches CSS transition duration
-    }, 3000);
-}
-        // GLOBAL STATE
-        let isCollapsed = false;
-        let selectedFilters = [];
-        const today = 15; // Mocking today is March 15th
+    <div class="step" id="step-6">
+      <div class="step-content">
+        <div class="question-header">
+          <span class="question-number">6</span>
+          <span>Do both of these two statements describe you? </span>
+        </div>
+        <div class="description">Choose "no" if only one of these or none describe you</div>
+        <div class="statement-list">
+          <p>1. We believe strong organic content will play an important role in advancing our brand and deepening relationships with customers.</p>
+          <p>2. We are commited to organic content long-term and thus believe it is a competency we should develop internally.</p>
+        </div>
+        <div class="choice-container">
+          <label class="choice-label"><input type="radio" name="statements_agree" value="Yes" required><span class="choice-letter">Y</span><span class="choice-text">Yes</span></label>
+          <label class="choice-label"><input type="radio" name="statements_agree" value="No" required><span class="choice-letter">N</span><span class="choice-text">No</span></label>
+        </div>
+        <div class="button-wrapper">
+          <button type="button" class="btn-submit next-btn">OK</button>
+          <span class="hint">press <strong>Enter ↵</strong></span>
+        </div>
+      </div>
+    </div>
 
-        // MASSIVE RAW DATASET
-        const teamMembers = [
-            { id: 1, name: "Alexander Pierce", role: "Design Director", init: "AP" },
-            { id: 2, name: "Sarah Connor", role: "Frontend Lead", init: "SC" },
-            { id: 3, name: "Marcus Wright", role: "Product Manager", init: "MW" },
-            { id: 4, name: "Elena Gilbert", role: "User Experience", init: "EG" },
-            { id: 5, name: "Reese Kyle", role: "Backend Engineer", init: "RK" },
-            { id: 6, name: "Miles Dyson", role: "AI Researcher", init: "MD" },
-            { id: 7, name: "Silas Vane", role: "Technical Writer", init: "SV" },
-            { id: 8, name: "Nova Prime", role: "Operations", init: "NP" },
-            { id: 9, name: "Echo Sierra", role: "Cloud Architect", init: "ES" },
-            { id: 10, name: "Tango Victor", role: "Security Specialist", init: "TV" },
-            { id: 11, name: "John Doe", role: "Marketing Lead", init: "JD" },
-            { id: 12, name: "Jane Smith", role: "QA Engineer", init: "JS" }
-        ];
+    <div class="step" id="step-7">
+      <div class="step-content">
+        <div class="question-header">
+          <span class="question-number">7</span>
+          <span>Email address to contact you: </span>
+        </div>
+        <div class="input-wrapper">
+          <input type="email" name="email" class="tf-input" placeholder="name@example.com" required>
+        </div>
+        <div class="button-wrapper">
+          <button type="button" class="btn-submit next-btn">OK</button>
+          <span class="hint">press <strong>Enter ↵</strong></span>
+        </div>
+      </div>
+    </div>
 
-        const mockCalls = [
-            // Past Calls
-            { id: 101, day: 1, time: "08:30 AM", title: "Infrastructure Review", editors: [9, 10] },
-            { id: 102, day: 2, time: "10:00 AM", title: "Monthly Sync", editors: [1, 2, 3] },
-            { id: 103, day: 3, time: "02:00 PM", title: "API Documentation", editors: [7, 5] },
-            { id: 104, day: 5, time: "09:00 AM", title: "Budget Audit", editors: [4, 8] },
-            { id: 105, day: 7, time: "11:00 AM", title: "Security Patch Update", editors: [10, 5] },
-            { id: 106, day: 10, time: "09:00 AM", title: "Legacy Review", editors: [1, 2] },
-            { id: 107, day: 12, time: "01:00 PM", title: "Content Strategy", editors: [11, 7] },
-            { id: 108, day: 14, time: "04:30 PM", title: "Pre-deployment Check", editors: [12, 2] },
+    <div class="step" id="step-8">
+      <div class="step-content">
+        <div class="question-header">
+          <span class="question-number">8</span>
+          <span>How did you hear about us? </span>
+        </div>
+        <div class="custom-dropdown-container">
+          
+          <div class="custom-dropdown-header">
+            <input type="text" id="q8-input" class="custom-dropdown-input" placeholder="Type or select an option" autocomplete="off" required>
+            <svg class="custom-dropdown-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </div>
+          <div id="q8-list" class="custom-dropdown-list" style="display: none;">
+            <div class="dropdown-item" data-value="Linkedin">Linkedin</div>
+            <div class="dropdown-item" data-value="Twitter">Twitter</div>
+            <div class="dropdown-item" data-value="Instagram">Instagram</div>
+            <div class="dropdown-item" data-value="TikTok">TikTok</div>
+            <div class="dropdown-item" data-value="Youtube">Youtube</div>
+            <div class="dropdown-item" data-value="Referral">Referral</div>
+            <div class="dropdown-item" data-value="Google">Google</div>
+            <div class="dropdown-item" data-value="Other">Other</div>
+          </div>
+          <input type="hidden" name="how_did_you_hear" id="q8-hidden">
+        </div>
+        <div class="button-wrapper">
+          <button type="button" class="btn-submit next-btn">OK</button>
+          <span class="hint">press <strong>Enter ↵</strong></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step" id="step-9">
+      <div class="step-content">
+        <div class="question-header">
+          <span class="question-number">9</span>
+          <span>Anything else we should know?</span>
+        </div>
+        <div class="input-wrapper">
+          <input type="text" name="anything_else" class="tf-input" placeholder="Type your answer here..." required>
+        </div>
+        <div class="button-wrapper">
+          <button type="submit" class="btn-submit">Next</button>
+          <span class="hint">press <strong>Enter ↵</strong></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step" id="step-10">
+      <div class="step-content" style="max-width: 900px; width: 100%; padding-top: 0; padding-bottom: 0;">
+        <div class="flex flex-col items-center justify-center w-full">
+          <img src="https://res.cloudinary.com/dobnqmfsg/image/upload/q_auto/f_auto/v1776510599/Untitled_design__3_-removebg-preview_xoxdtc.png" alt="Logo" class="w-16 mb-4 mt-0">
+          <div class="flex flex-col md:flex-row items-start justify-center w-full gap-4">
             
-            // Current Day (Today)
-            { id: 201, day: 15, time: "10:00 AM", title: "Strategy Alignment Call", editors: [1, 3], isLive: true },
-            { id: 202, day: 15, time: "12:00 PM", title: "Mid-Day Checkin", editors: [8, 4] },
-            { id: 203, day: 15, time: "02:00 PM", title: "Client Handover Session", editors: [2, 4, 11] },
-            { id: 204, day: 15, time: "04:00 PM", title: "Sprint Grooming", editors: [3, 12, 6] },
-            
-            // Future Calls
-            { id: 301, day: 16, time: "09:30 AM", title: "Design System Workshop", editors: [1, 4] },
-            { id: 302, day: 17, time: "11:00 AM", title: "AI Model Refinement", editors: [6, 9] },
-            { id: 303, day: 18, time: "03:00 PM", title: "Stakeholder Update", editors: [3, 8] },
-            { id: 304, day: 20, time: "10:00 AM", title: "Weekly Planning", editors: [1, 3, 5, 8] },
-            { id: 305, day: 22, time: "11:30 AM", title: "Future Planning", editors: [1, 5] },
-            { id: 306, day: 25, time: "09:00 AM", title: "Quarterly Review Prep", editors: [11, 1, 3] },
-            { id: 307, day: 28, time: "02:00 PM", title: "Security Audit", editors: [10, 9] },
-            { id: 308, day: 30, time: "04:00 PM", title: "Team Wind Down", editors: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] }
-        ];
-
-        // NAVIGATION LOGIC
-        function toggleSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            const mainContent = document.getElementById('mainContent');
-            const toggleIcon = document.getElementById('toggleIcon');
-            const navTexts = document.querySelectorAll('.nav-text');
-            isCollapsed = !isCollapsed;
-
-            if (isCollapsed) {
-                sidebar.style.width = '70px';
-                mainContent.style.marginLeft = '70px';
-                toggleIcon.style.transform = 'rotate(180deg)';
-                navTexts.forEach(el => el.classList.add('hidden'));
-            } else {
-                sidebar.style.width = '256px';
-                mainContent.style.marginLeft = '256px';
-                toggleIcon.style.transform = 'rotate(0deg)';
-                navTexts.forEach(el => el.classList.remove('hidden'));
-            }
-        }
-
-        function showPage(pageId) {
-            document.querySelectorAll('.page').forEach(page => page.classList.add('hidden'));
-            document.getElementById('page-' + pageId).classList.remove('hidden');
-
-            const title = document.getElementById('page-title');
-            const filters = document.getElementById('team-view-filters');
-            filters.classList.add('hidden');
-            
-            if(pageId === 'dashboard') title.innerText = "Welcome back, Noman";
-            if(pageId === 'availability') title.innerText = "Availability";
-            if(pageId === 'schedule') {
-                title.innerText = "Schedule a Call";
-                initScheduleGallery();
-            }
-            if(pageId === 'teamview') {
-                title.innerText = "Team Schedule";
-                filters.classList.remove('hidden');
-                initTeamView();
-            }
-
-            ['dashboard', 'availability', 'schedule', 'teamview'].forEach(id => {
-                const nav = document.getElementById('nav-' + id);
-                if (nav) {
-                    if (id === pageId) nav.className = "flex items-center p-3 rounded-lg bg-white text-black transition-all group";
-                    else nav.className = "flex items-center p-3 rounded-lg text-white/40 hover:bg-white/5 hover:text-white transition-all group";
-                }
-            });
-        }
-
-        // AVAILABILITY LOGIC
-        function initAvailability() {
-            const container = document.getElementById('daily-schedules');
-            const existingRow = container.querySelector('.day-row');
-            const daysArr = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-            
-            daysArr.slice(1).forEach(dayName => {
-                const clone = existingRow.cloneNode(true);
-                clone.setAttribute('data-day', dayName);
-                clone.querySelector('span').innerText = dayName.charAt(0).toUpperCase() + dayName.slice(1);
-                const cb = clone.querySelector('.day-toggle');
-                if (dayName === 'saturday' || dayName === 'sunday') cb.checked = false;
-                container.appendChild(clone);
-                updateRowState(cb);
-            });
-            updateRowState(existingRow.querySelector('.day-toggle'));
-        }
-
-        function updateRowState(checkbox) {
-            const row = checkbox.closest('.day-row');
-            const timeControls = row.querySelector('.time-controls');
-            const status = row.querySelector('.status-indicator');
-            let unavailableText = row.querySelector('.unavailable-text');
-
-            if (checkbox.checked) {
-                row.classList.remove('opacity-40');
-                timeControls.classList.remove('hidden');
-                if (unavailableText) unavailableText.classList.add('hidden');
-                status.innerText = "Active";
-            } else {
-                row.classList.add('opacity-40');
-                timeControls.classList.add('hidden');
-                if (!unavailableText) {
-                    unavailableText = document.createElement('div');
-                    unavailableText.className = "flex-1 unavailable-text text-[10px] text-white/40 uppercase tracking-[0.2em]";
-                    unavailableText.innerText = "Closed / Unavailable";
-                    row.insertBefore(unavailableText, status);
-                } else unavailableText.classList.remove('hidden');
-                status.innerText = "Off";
-            }
-        }
-
-        function toggleAllDays(checked) {
-            document.querySelectorAll('.day-toggle').forEach(cb => {
-                cb.checked = checked;
-                updateRowState(cb);
-            });
-        }
-
-        // SCHEDULE GALLERY LOGIC
-        function initScheduleGallery() {
-            const container = document.querySelector('#team-gallery .grid');
-            container.innerHTML = '';
-            teamMembers.forEach(m => {
-                const card = document.createElement('div');
-                card.className = "p-6 bg-white/[0.03] border border-white/10 rounded-xl hover:bg-white/[0.06] hover:border-white/30 cursor-pointer transition-all group text-center";
-                card.innerHTML = `
-                    <div class="w-16 h-16 rounded-lg bg-white text-black font-black text-lg flex items-center justify-center mx-auto mb-4 group-hover:scale-105 transition-transform">${m.init}</div>
-                    <h4 class="text-sm font-bold tracking-tight mb-1">${m.name}</h4>
-                    <p class="text-[9px] text-white/40 uppercase tracking-widest">${m.role}</p>
-                `;
-                card.onclick = () => openBooking(m);
-                container.appendChild(card);
-            });
-        }
-
-        function openBooking(m) {
-            document.getElementById('team-gallery').classList.add('hidden');
-            document.getElementById('booking-interface').classList.remove('hidden');
-            document.getElementById('b-name').innerText = m.name;
-            document.getElementById('b-role').innerText = m.role;
-            document.getElementById('b-avatar').innerText = m.init;
-            initBookingCalendar();
-        }
-
-        function closeBooking() {
-            document.getElementById('team-gallery').classList.remove('hidden');
-            document.getElementById('booking-interface').classList.add('hidden');
-        }
-
-        function initBookingCalendar() {
-            const grid = document.getElementById('b-calendar-days');
-            grid.innerHTML = '';
-            for(let i=0; i<5; i++) grid.innerHTML += `<div class="booking-day empty"></div>`;
-            for(let i=1; i<=31; i++) {
-                const d = document.createElement('div');
-                d.className = "booking-day rounded-md";
-                d.innerText = i;
-                d.onclick = (e) => {
-                    document.querySelectorAll('.booking-day').forEach(el => el.classList.remove('selected'));
-                    e.target.classList.add('selected');
-                    const slots = document.getElementById('b-time-slots');
-                    slots.innerHTML = ["09:00 AM", "11:30 AM", "01:00 PM", "02:30 PM", "04:00 PM", "05:30 PM"].map(t => `
-                        <button onclick="showSuccessScreen('Booking Confirmed', 'Your session is locked for ${t}')" class="w-full p-3 bg-black border border-white/10 rounded text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all">${t}</button>
-                    `).join('');
-                };
-                grid.appendChild(d);
-            }
-        }
-
-        // TEAM VIEW LOGIC
-        function initTeamView() {
-            const filterWrap = document.getElementById('filter-container');
-            filterWrap.innerHTML = '';
-            teamMembers.forEach(m => {
-                const btn = document.createElement('button');
-                btn.className = "px-3 py-1 rounded-full border border-white/10 text-[9px] font-bold uppercase transition-all whitespace-nowrap";
-                btn.innerText = m.init;
-                btn.onclick = () => {
-                    if (selectedFilters.includes(m.id)) {
-                        selectedFilters = selectedFilters.filter(id => id !== m.id);
-                        btn.classList.remove('bg-white', 'text-black');
-                    } else {
-                        selectedFilters.push(m.id);
-                        btn.classList.add('bg-white', 'text-black');
-                    }
-                    renderTeamGrid();
-                };
-                filterWrap.appendChild(btn);
-            });
-            renderTeamGrid();
-        }
-
-        function renderTeamGrid() {
-            const grid = document.getElementById('team-grid');
-            grid.innerHTML = '';
-            for(let i=0; i<5; i++) grid.innerHTML += `<div class="team-day-cell empty bg-black/20"></div>`;
-            for(let i=1; i<=31; i++) {
-                const isPast = i < today;
-                const isToday = i === today;
-                const isWeekend = (i + 5) % 7 === 0 || (i + 5) % 7 === 6;
-                const dayCalls = mockCalls.filter(c => c.day === i);
-                const filtered = selectedFilters.length ? dayCalls.filter(c => c.editors.some(eId => selectedFilters.includes(eId))) : dayCalls;
-
-                const cell = document.createElement('div');
-                cell.className = `team-day-cell ${isPast ? 'past' : ''} ${isToday ? 'selected' : ''}`;
-                cell.innerHTML = `
-                    <div class="flex justify-between">
-                        <span class="text-xs font-bold ${isToday ? 'bg-white text-black px-1 rounded' : ''}">${i}</span>
-                        <div class="flex flex-col items-end gap-1">
-                            ${isWeekend ? '<span class="tag-off">OFF</span>' : '<span class="tag-work">WORK</span>'}
-                            ${isToday ? '<div class="live-dot"></div>' : ''}
+            <div class="w-full max-w-[380px] bg-white p-4 rounded-2xl border border-[rgba(3,35,48,0.1)] shadow-2xl">
+                <div class="mb-3 flex justify-between items-center relative z-[5000]">
+                    <h1 class="text-base font-bold capitalize tracking-wide text-[var(--accent-color)]">Select Date</h1>
+                    <div class="relative w-48">
+                        <div id="tz-dropdown-btn" onclick="toggleTzDropdown()" class="bg-[rgba(3,35,48,0.03)] border border-[rgba(3,35,48,0.1)] rounded-full px-4 py-2 flex items-center justify-between cursor-pointer w-full group hover:border-[rgba(3,35,48,0.3)] transition-all">
+                            <div class="flex items-center space-x-2 overflow-hidden w-full">
+                                <i data-lucide="globe" class="w-3.5 h-3.5 text-[var(--accent-color)] shrink-0"></i>
+                                <span id="tz-selected-text" class="text-[10px] text-[var(--accent-color)] font-light tracking-wide truncate pointer-events-none w-full text-left">Loading...</span>
+                            </div>
+                            <i data-lucide="chevron-down" id="tz-chevron" class="w-3 h-3 text-[var(--accent-color)] ml-2 shrink-0 transition-transform duration-200 pointer-events-none"></i>
+                        </div>
+                        <div id="tz-dropdown-menu" class="hidden absolute top-full right-0 mt-2 w-64 bg-white border border-[rgba(3,35,48,0.1)] rounded-2xl shadow-2xl z-[6000] flex flex-col overflow-hidden">
+                            <div class="p-2 border-b border-[rgba(3,35,48,0.1)]">
+                                <input type="text" id="tz-search" oninput="filterTimezones()" placeholder="Search city or timezone..." class="w-full bg-[rgba(3,35,48,0.03)] border border-[rgba(3,35,48,0.1)] rounded-xl px-3 py-2 text-[10px] text-[var(--accent-color)] font-light focus:outline-none focus:border-[var(--accent-color)] transition-colors">
+                            </div>
+                            <div id="tz-list" class="max-h-64 overflow-y-auto custom-scrollbar flex flex-col p-1 bg-white"></div>
                         </div>
                     </div>
-                    <div class="mt-4 flex flex-wrap gap-1">${filtered.map(() => '<div class="user-indicator"></div>').join('')}</div>
-                `;
-                cell.onclick = () => openCallList(i, filtered);
-                grid.appendChild(cell);
-            }
-        }
+                </div>
+                
+                <div class="bg-[rgba(3,35,48,0.02)] border border-[rgba(3,35,48,0.1)] rounded-xl p-4">
+                    <div class="flex justify-between items-center mb-4">
+                        <button type="button" onclick="changeBookingMonth(-1)" class="p-1 hover:bg-[rgba(3,35,48,0.08)] rounded text-[var(--accent-color)] transition-colors"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
+                        <h4 id="b-calendar-month-label" class="text-xs font-bold uppercase tracking-widest text-center text-[var(--accent-color)]">Month Year</h4>
+                        <button type="button" onclick="changeBookingMonth(1)" class="p-1 hover:bg-[rgba(3,35,48,0.08)] rounded text-[var(--accent-color)] transition-colors"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
+                    </div>
+                    <div class="booking-calendar-grid text-[10px] text-[rgba(3,35,48,0.5)] uppercase font-bold mb-2 text-center">
+                        <div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div>
+                    </div>
+                    <div id="b-calendar-days" class="booking-calendar-grid text-[var(--accent-color)]"></div>
+                </div>
+            </div>
 
-        function openCallList(day, calls) {
-    const sidelist = document.getElementById('call-sidelist');
-    document.getElementById('side-date-title').innerText = `March ${day}, 2024`;
-    sidelist.classList.remove('hidden');
-    setTimeout(() => { sidelist.style.width = "400px"; sidelist.style.opacity = "1"; }, 10);
+            <div id="timeSlotsContainer" class="w-full flex flex-col relative md:pt-0">
+                <div class="flex justify-between items-center mb-3 h-[40px]">
+                    <div>
+                        <h3 id="selectedDateLabel" class="text-lg font-light text-[var(--accent-color)]">Select a date</h3>
+                        <p class="text-[rgba(3,35,48,0.6)] text-[9px] tracking-widest uppercase mt-0.5">Select an available slot</p>
+                    </div>
+                    <div id="bookNowBtnContainer" class="hidden">
+                        <button type="button" onclick="confirmBooking()" class="btn-submit flex justify-center items-center" style="padding: 6px 12px; font-size: 13px; min-width: 110px;">Book Now →</button>
+                    </div>
+                </div>
+                <div class="space-y-2 h-[340px] overflow-y-auto pr-2 custom-scrollbar" id="timeSlotsList">
+                </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
-    const liveSection = document.getElementById('live-call-section');
-    const liveContent = document.getElementById('live-content');
-    const chronoContainer = document.getElementById('chronological-calls');
+    <div class="step" id="step-11">
+      <div class="step-content text-center flex flex-col items-center">
+        <div class="w-20 h-20 bg-[var(--accent-color)] text-white rounded-full flex items-center justify-center mb-6">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+        </div>
+        <h1 class="text-4xl font-light mb-4 text-[var(--accent-color)]">You're all set!</h1>
+        <p class="text-[rgba(3,35,48,0.6)] max-w-md mx-auto leading-relaxed text-lg">We've sent a confirmation email with the meeting details. Our team is excited to help you scale.</p>
+      </div>
+    </div>
+
+  </div>
+</form>
+
+<script>
+  // --- ENVIRONMENT DETECTION ---
+  function detectEnvironment() {
+      const ua = navigator.userAgent || navigator.vendor || window.opera;
+      const body = document.body;
+
+      // 1. Detect if it's a mobile device generally
+      const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua.toLowerCase());
+      if (isMobile) {
+          body.classList.add('is-mobile');
+      } else {
+          body.classList.add('is-desktop');
+      }
+
+      // 2. Detect notorious In-App Browsers via UA strings
+      const rules = [
+          'FBAV', 'FBAN', // Facebook
+          'Instagram',    // Instagram
+          'LinkedInApp',  // LinkedIn
+          'Twitter',      // X / Twitter
+          'Bytedance',    // TikTok
+          'Snapchat'      // Snapchat
+      ];
+      
+      const isInApp = rules.some(rule => ua.indexOf(rule) > -1);
+      const isSamsung = /SamsungBrowser/i.test(ua);
+      
+      if (isInApp) {
+          body.classList.add('is-in-app-browser');
+          // Optional: You can even detect which specific one if needed
+          if (ua.indexOf('LinkedInApp') > -1) body.classList.add('is-linkedin');
+      }
+
+      // 3. Detect Samsung Internet specifically
+      if (isSamsung) {
+          body.classList.add('is-samsung-browser');
+          
+          // NUCLEAR OPTION: Reverse-scale to defeat Samsung's aggressive "Webpage text size" slider
+          try {
+              const testEl = document.createElement('div');
+              // Create an invisible 10px text element
+              testEl.style.cssText = 'position:absolute; visibility:hidden; font-size:10px; line-height:1; top:-9999px; margin:0; padding:0;';
+              testEl.innerText = 'A';
+              document.body.appendChild(testEl);
+              
+              // Measure what Samsung ACTUALLY rendered it as
+              const computedSize = parseFloat(window.getComputedStyle(testEl).fontSize);
+              document.body.removeChild(testEl);
+              
+              // If Samsung inflated the 10px text, calculate the exact opposite ratio
+              if (computedSize > 10.1 || computedSize < 9.9) {
+                  const scaleRatio = 10 / computedSize;
+                  
+                  // THE ULTIMATE FIX FOR THE HALF-SCREEN CUTOFF:
+                  // CSS 'zoom' causes physical paint clipping in Samsung Chromium (the bottom half disappears). 
+                  // We switch to CSS 'transform: scale', which bypasses the paint clipping bug entirely.
+                  document.body.style.setProperty('transform', `scale(${scaleRatio})`, 'important');
+                  document.body.style.setProperty('transform-origin', 'top left', 'important');
+                  
+                  // When the keyboard opens/closes, physical bounds break. We use JS to surgically 
+                  // force the width and height in exact pixels, inversing the scale ratio in real-time.
+                  function forceSamsungPixelBounds() {
+                      // Use visualViewport if available to perfectly track the virtual keyboard
+                      const activeWidth = window.visualViewport ? window.visualViewport.width : window.innerWidth;
+                      const activeHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+                      
+                      const trueWidth = activeWidth / scaleRatio;
+                      const trueHeight = activeHeight / scaleRatio;
+                      
+                      document.body.style.setProperty('width', trueWidth + 'px', 'important');
+                      document.body.style.setProperty('height', trueHeight + 'px', 'important');
+                      
+                      const fc = document.getElementById('form-container');
+                      if (fc) {
+                          fc.style.setProperty('width', trueWidth + 'px', 'important');
+                          fc.style.setProperty('height', trueHeight + 'px', 'important');
+                      }
+                  }
+                  
+                  // Run instantly and bind to screen resizes (keyboard opening/closing)
+                  forceSamsungPixelBounds();
+                  window.addEventListener('resize', forceSamsungPixelBounds);
+                  if (window.visualViewport) {
+                      window.visualViewport.addEventListener('resize', forceSamsungPixelBounds);
+                  }
+              }
+          } catch(e) { console.warn("Reverse scale failed", e); }
+      }
+  }
+
+  // Run detection immediately
+  detectEnvironment();
+  // Dropdown Logic for Step 8
+  document.addEventListener('DOMContentLoaded', () => {
+    const ddInput = document.getElementById('q8-input');
+    const ddList = document.getElementById('q8-list');
+    const hiddenVal = document.getElementById('q8-hidden');
     
-    liveSection.classList.add('hidden');
-    chronoContainer.innerHTML = '';
+    if(ddInput) {
+      const items = ddList.querySelectorAll('.dropdown-item');
 
-    if (!calls.length) {
-        chronoContainer.innerHTML = '<p class="text-center mt-20 text-[9px] text-white/20 uppercase">No sessions recorded</p>';
-        return;
-    }
+      ddInput.addEventListener('click', () => {
+        ddList.style.display = 'flex';
+      });
 
-    // Sort calls by time
-    function parseTimeToNumber(timeStr) {
-        let [time, modifier] = timeStr.split(' ');
-        let [hours, minutes] = time.split(':').map(Number);
-        if (modifier === 'PM' && hours !== 12) hours += 12;
-        if (modifier === 'AM' && hours === 12) hours = 0;
-        return hours * 60 + minutes;
-    }
+      ddInput.addEventListener('input', (e) => {
+        ddList.style.display = 'flex';
+        const val = e.target.value.toLowerCase();
+        items.forEach(item => {
+          if(item.textContent.toLowerCase().includes(val)) {
+            item.style.display = 'block';
+          } else {
+            item.style.display = 'none';
+          }
+        });
+        hiddenVal.value = e.target.value; // Allow custom typed answer tracking
+      });
 
-    const sortedCalls = [...calls].sort((a, b) => parseTimeToNumber(a.time) - parseTimeToNumber(b.time));
+      items.forEach(item => {
+        item.addEventListener('click', () => {
+          ddInput.value = item.textContent.trim();
+          hiddenVal.value = item.dataset.value;
+          ddList.style.display = 'none';
+          
+          // Auto-advance
+          setTimeout(() => {
+            goToStep(currentStep + 1);
+          }, 300);
+        });
+      });
 
-    sortedCalls.forEach(c => {
-        const el = document.createElement('div');
-        el.className = "p-4 border border-white/10 rounded group-hover:border-white/30 transition-all";
-
-        // Get editor names
-        const editorNames = c.editors.map(id => {
-            const member = teamMembers.find(m => m.id === id);
-            return member ? member.name : 'Unknown';
-        }).join(', ');
-
-        el.innerHTML = `
-    <div class="flex justify-between mb-2">
-        <span class="text-[9px] font-black text-white uppercase tracking-widest">${c.time}</span>
-        <span class="text-[9px] font-black text-white uppercase tracking-widest">${c.title}</span>
-    </div>
-    <div class="text-[10px] text-white uppercase tracking-widest">
-        ${editorNames}
-    </div>
-`;
-
-        // Highlight live call if any
-        if (c.isLive) {
-            liveSection.classList.remove('hidden');
-            liveContent.innerHTML = el.outerHTML;
-        } else {
-            chronoContainer.appendChild(el);
+      // Close dropdown if clicking outside the container
+      document.addEventListener('click', (e) => {
+        if(!e.target.closest('.custom-dropdown-container')) {
+          ddList.style.display = 'none';
         }
+      });
+    }
+  });
+
+  // The Engine: Handles sliding between questions
+  const container = document.getElementById('form-container');
+  const steps = document.querySelectorAll('.step');
+  const nextBtns = document.querySelectorAll('.next-btn');
+  const progressBar = document.getElementById('progress-bar');
+  let currentStep = 0;
+
+  const navUpBtn = document.getElementById('nav-up');
+  const navDownBtn = document.getElementById('nav-down');
+
+  function updateProgress() {
+    if (progressBar) {
+      const percentage = ((currentStep + 1) / steps.length) * 100;
+      progressBar.style.width = percentage + '%';
+    }
+    // Disable the UP button if we are on the first question
+    if (navUpBtn) {
+      navUpBtn.disabled = (currentStep === 0);
+    }
+  }
+  
+  // Initialize progress bar
+  updateProgress();
+
+  
+  // "Go Back" Navigation Logic
+  if (navUpBtn) {
+    navUpBtn.addEventListener('click', () => {
+      if (currentStep > 0) {
+        // Slide current step down and out
+        steps[currentStep].classList.remove('active', 'reverse');
+        steps[currentStep].classList.add('exit-down');
+        
+        currentStep--;
+        updateProgress();
+        
+        // Wait for the exit animation to finish (500ms) before showing the next question
+        setTimeout(() => {
+          // Reactivate the previous step
+          steps[currentStep].classList.remove('exit-up', 'exit-down');
+          
+          // Force reflow to ensure the entrance animation re-triggers identically
+          void steps[currentStep].offsetWidth;
+          
+          steps[currentStep].classList.add('active', 'reverse');
+        }, 500);
+      }
     });
-}
+  }
 
-        function closeCallList() {
-            const sidelist = document.getElementById('call-sidelist');
-            sidelist.style.width = "0"; sidelist.style.opacity = "0";
-            setTimeout(() => sidelist.classList.add('hidden'), 400);
-        }
+  // "Go Forward" Navigation Logic (relies on existing validation)
+  if (navDownBtn) {
+    navDownBtn.addEventListener('click', () => {
+      goToStep(currentStep + 1);
+    });
+  }
 
-        function switchTab(tab) {
-            const upBtn = document.getElementById('tab-upcoming');
-            const pastBtn = document.getElementById('tab-past');
-            const upContent = document.getElementById('content-upcoming');
-            const pastContent = document.getElementById('content-past');
-            if (tab === 'upcoming') {
-                upBtn.classList.add('tab-active'); pastBtn.classList.remove('tab-active');
-                upContent.classList.remove('hidden'); pastContent.classList.add('hidden');
-            } else {
-                pastBtn.classList.add('tab-active'); upBtn.classList.remove('tab-active');
-                pastContent.classList.remove('hidden'); upContent.classList.add('hidden');
-            }
-        }
+  function goToStep(stepIndex) {
+    // Validate current step inputs before moving
+    const inputs = steps[currentStep].querySelectorAll('input[required], select[required]');
+    for (let input of inputs) {
+      if (!input.checkValidity()) {
+        input.reportValidity();
+        return; // Stop if validation fails
+      }
+    }
 
-        window.onload = () => {
-            initAvailability();
-            showPage('dashboard');
-        };
-    </script>
+    if (stepIndex >= steps.length) return;
+    
+    // Slide the old step up and fade it out
+    steps[currentStep].classList.remove('active', 'reverse');
+    steps[currentStep].classList.add('exit-up');
+    
+    currentStep = stepIndex;
+    updateProgress();
+    
+    // Wait for the exit animation to finish (500ms) before showing the next question
+    setTimeout(() => {
+      // Reactivate the new step
+      steps[currentStep].classList.remove('exit-up', 'exit-down', 'reverse');
+      
+      // Force reflow to ensure the entrance animation re-triggers identically
+      void steps[currentStep].offsetWidth;
+      
+      steps[currentStep].classList.add('active');
+      const nextInput = steps[currentStep].querySelector('input[type="text"], input[type="email"], input[type="url"]');
+      if (nextInput) {
+        setTimeout(() => nextInput.focus(), 600); // Wait for transition to finish
+      }
+    }, 500);
+  }
+
+  // Auto-advance for choice cards and scales (Radio buttons)
+  document.querySelectorAll('input[type="radio"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      setTimeout(() => {
+        goToStep(currentStep + 1);
+      }, 400); // Slight delay to visually confirm choice
+    });
+  });
+
+  // Click listener for OK buttons
+  nextBtns.forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      goToStep(currentStep + 1);
+    });
+  });
+
+  // Keyboard listener for "Enter" key
+  document.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault(); // Prevent accidental form submission
+      
+      // If we are on step 9 (index 8), submit the form to proceed to Calendar
+      if (currentStep === 8) {
+        document.getElementById('main-form').requestSubmit();
+      } else if (currentStep < 8) {
+        goToStep(currentStep + 1);
+      }
+    }
+  });
+
+  // Handle final submission and slide to Calendar
+  document.getElementById('main-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    // Slide to Step 10 (Calendar, which is index 9)
+    goToStep(9); 
+    
+    // Initialize the calendar assets as it comes into view
+    if(window.initTimezones) window.initTimezones();
+    if(window.initBookingCalendar) window.initBookingCalendar();
+    if(window.lucide) lucide.createIcons();
+  });
+
+  // --- CONFIGURATION & SETUP ---
+  var SUPABASE_URL = 'https://ikeyqwtrqaqogecvxmiq.supabase.co'; 
+  var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlrZXlxd3RycWFxb2dlY3Z4bWlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0OTE0NTYsImV4cCI6MjA4OTA2NzQ1Nn0.6Gp5Y8J2T8gzY44gmcYojP8z028T6OVKOzfNT_1cqi8'; 
+  var TARGET_PROFILE_ID = 'b64d723a-df63-4447-8ed5-212836ddd659';
+  var WEBHOOK_URL = 'https://n8n.norkx.space/webhook/Leadhascoem';
+  
+  var supabaseInstance = null;
+  try {
+      if (window.supabase) {
+          supabaseInstance = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+              auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+          });
+
+          // Attempt anonymous sign in to fulfill {authenticated} RLS policies for external queries
+          if (supabaseInstance.auth && supabaseInstance.auth.signInAnonymously) {
+              supabaseInstance.auth.signInAnonymously().catch(e => console.warn("Anon auth skip", e));
+          }
+
+          supabaseInstance.channel('public-booking-changes')
+              .on('postgres_changes', { event: '*', schema: 'public', table: 'availability' }, payload => {
+                  if (selectedDateStr) fetchAndRenderSlots(selectedDateStr);
+              })
+              .on('postgres_changes', { event: '*', schema: 'public', table: 'meeting_participants' }, payload => {
+                  if (selectedDateStr) fetchAndRenderSlots(selectedDateStr);
+              })
+              .subscribe();
+      }
+  } catch (e) { console.error("Supabase failed to initialize.", e); }
+
+  // --- GLOBAL VARIABLES ---
+  var globalTimezoneList = [];
+  var currentUserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  var currentBookingYear = new Date().getFullYear();
+  var currentBookingMonth = new Date().getMonth();
+  var selectedDateStr = null;
+  var activeSelectedSlot = null;
+  var availableSlotsCache = [];
+
+  // --- 1. TIMEZONE LOGIC ---
+  window.initTimezones = function() {
+      try {
+          const timezones = Intl.supportedValuesOf('timeZone');
+          const now = new Date();
+          globalTimezoneList = timezones.map(tz => {
+              const parts = tz.split('/');
+              const city = parts[parts.length - 1].replace(/_/g, ' ');
+              const region = parts.length > 1 ? parts[0].replace(/_/g, ' ') : '';
+              let gmtOffset = '';
+              try {
+                  const tzString = now.toLocaleString('en-US', { timeZone: tz, timeZoneName: 'shortOffset' });
+                  const match = tzString.match(/(GMT[+-]?\d*(?::\d{2})?)/);
+                  if (match) gmtOffset = match[1];
+              } catch(e) {}
+              let label = `${city}`;
+              if (region && region !== city) label += `, ${region}`;
+              if (gmtOffset) label += ` (${gmtOffset})`;
+              return { val: tz, label: label, searchStr: label.toLowerCase() };
+          }).sort((a, b) => a.label.localeCompare(b.label));
+
+          renderTzDropdown();
+          updateTzSelectedText(currentUserTimezone);
+      } catch(e) { console.error('Timezone init error:', e); }
+  }
+
+  function renderTzDropdown(filterText) {
+      filterText = filterText || '';
+      const tzListEl = document.getElementById('tz-list');
+      if(!tzListEl) return;
+      const filtered = filterText ? globalTimezoneList.filter(t => t.searchStr.includes(filterText.toLowerCase())) : globalTimezoneList;
+      
+      tzListEl.innerHTML = filtered.map(tz => 
+          `<div onclick="selectTimezone('` + tz.val + `')" class="px-3 py-2.5 text-[10px] text-[var(--accent-color)] font-light hover:bg-[rgba(3,35,48,0.08)] rounded-lg cursor-pointer transition-colors ${tz.val === currentUserTimezone ? 'bg-[rgba(3,35,48,0.08)] font-bold' : ''}">${tz.label}</div>`
+      ).join('');
+  }
+
+  function filterTimezones() {
+      const text = document.getElementById('tz-search').value;
+      renderTzDropdown(text);
+  }
+
+  function toggleTzDropdown() {
+      const menu = document.getElementById('tz-dropdown-menu');
+      const chevron = document.getElementById('tz-chevron');
+      if(!menu) return;
+      const isHidden = menu.classList.contains('hidden');
+      if (isHidden) {
+          menu.classList.remove('hidden');
+          if(chevron) chevron.style.transform = 'rotate(-180deg)';
+          document.getElementById('tz-search').focus();
+      } else {
+          menu.classList.add('hidden');
+          if(chevron) chevron.style.transform = 'rotate(0deg)';
+          document.getElementById('tz-search').value = '';
+          renderTzDropdown(); 
+      }
+  }
+
+  document.addEventListener('click', function(e) {
+      const menu = document.getElementById('tz-dropdown-menu');
+      const btn = document.getElementById('tz-dropdown-btn');
+      if (menu && !menu.classList.contains('hidden') && !menu.contains(e.target) && btn && !btn.contains(e.target)) {
+          toggleTzDropdown();
+      }
+  });
+
+  function updateTzSelectedText(tzValue) {
+      const found = globalTimezoneList.find(t => t.val === tzValue);
+      const el = document.getElementById('tz-selected-text');
+      if(el && found) el.innerText = found.label;
+  }
+
+  function selectTimezone(newTz) {
+      toggleTzDropdown();
+      currentUserTimezone = newTz;
+      updateTzSelectedText(newTz);
+      if (selectedDateStr) {
+          fetchAndRenderSlots(selectedDateStr); 
+      }
+  }
+
+  // --- 2. CALENDAR LOGIC ---
+  function changeBookingMonth(dir) {
+      const now = new Date();
+      currentBookingMonth += dir;
+      if (currentBookingMonth > 11) { currentBookingMonth = 0; currentBookingYear++; }
+      if (currentBookingMonth < 0) { currentBookingMonth = 11; currentBookingYear--; }
+      
+      const minMonth = now.getMonth();
+      const minYear = now.getFullYear();
+      let maxMonth = minMonth + 1;
+      let maxYear = minYear;
+      if (maxMonth > 11) { maxMonth = 0; maxYear++; }
+
+      const isBeforeMin = currentBookingYear < minYear || (currentBookingYear === minYear && currentBookingMonth < minMonth);
+      const isAfterMax = currentBookingYear > maxYear || (currentBookingYear === maxYear && currentBookingMonth > maxMonth);
+
+      if (isBeforeMin) {
+          currentBookingYear = minYear; currentBookingMonth = minMonth;
+          return;
+      }
+      if (isAfterMax) {
+          currentBookingYear = maxYear; currentBookingMonth = maxMonth;
+          return;
+      }
+      window.initBookingCalendar();
+      if(window.lucide) lucide.createIcons();
+  }
+
+  window.initBookingCalendar = function() {
+      const grid = document.getElementById('b-calendar-days');
+      const monthLabel = document.getElementById('b-calendar-month-label');
+      if (!grid) return;
+      
+      const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+      if(monthLabel) monthLabel.innerText = `${monthNames[currentBookingMonth]} ${currentBookingYear}`;
+      
+      grid.innerHTML = '';
+      const firstDay = new Date(currentBookingYear, currentBookingMonth, 1).getDay();
+      const daysInMonth = new Date(currentBookingYear, currentBookingMonth + 1, 0).getDate();
+      
+      for(let i=0; i<firstDay; i++) {
+          grid.innerHTML += `<div class="booking-day empty"></div>`;
+      }
+      
+      const now = new Date();
+      const bufferTime = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      const bufferMidnight = new Date(bufferTime.getFullYear(), bufferTime.getMonth(), bufferTime.getDate());
+
+      for(let i=1; i<=daysInMonth; i++) {
+          const d = document.createElement('div');
+          const dateObj = new Date(currentBookingYear, currentBookingMonth, i);
+          const dayOfWeek = dateObj.getDay();
+
+          if (dateObj < bufferMidnight || dayOfWeek === 0 || dayOfWeek === 6) {
+              d.className = "booking-day disabled opacity-20 cursor-not-allowed text-[var(--accent-color)]";
+              d.innerText = i;
+          } else {
+              d.className = "booking-day rounded-md hover:bg-[rgba(3,35,48,0.08)] text-[var(--accent-color)]";
+              d.innerText = i;
+              
+              const loopDateStr = `${currentBookingYear}-${String(currentBookingMonth + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+              if (selectedDateStr === loopDateStr) d.classList.add('selected');
+
+              d.onclick = (e) => {
+                  document.querySelectorAll('.booking-day').forEach(el => el.classList.remove('selected'));
+                  e.currentTarget.classList.add('selected');
+                  
+                  selectedDateStr = loopDateStr;
+                  const options = { month: 'long', day: 'numeric', year: 'numeric' };
+                  document.getElementById('selectedDateLabel').innerText = dateObj.toLocaleDateString('en-US', options);
+                  
+                  document.getElementById('timeSlotsContainer').classList.add('open');
+                  document.getElementById('bookNowBtnContainer').classList.add('hidden');
+                  activeSelectedSlot = null;
+                  
+                  fetchAndRenderSlots(selectedDateStr);
+              };
+          }
+          grid.appendChild(d);
+      }
+  }
+
+  // --- 3. FETCH AND RENDER SLOTS ---
+  async function fetchAndRenderSlots(dateStr) {
+      const list = document.getElementById('timeSlotsList');
+      list.innerHTML = '<p class="text-[10px] text-[rgba(3,35,48,0.5)] uppercase col-span-full text-center py-4">Checking availability...</p>';
+      
+      try {
+          if (!supabaseInstance) throw new Error("Supabase is not connected. Make sure you entered valid URLs.");
+          const [year, month, day] = dateStr.split('-').map(Number);
+          const dateObj = new Date(year, month - 1, day);
+          const dayOfWeekNum = dateObj.getDay(); 
+          
+          const baseDateUTC = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+          const minUTC = new Date(baseDateUTC.getTime() - 24 * 60 * 60 * 1000).toISOString();
+          const maxUTC = new Date(baseDateUTC.getTime() + 48 * 60 * 60 * 1000).toISOString();
+
+          // Securely call the RPC function to bypass RLS and fetch only necessary scheduling data
+          const { data: rpcData, error: rpcErr } = await supabaseInstance.rpc('get_public_booking_data', {
+              p_target_profile_id: TARGET_PROFILE_ID,
+              p_start_utc: minUTC,
+              p_end_utc: maxUTC
+          });
+
+          if (rpcErr) throw rpcErr;
+
+          const hostTz = rpcData.timezone;
+          const allMeetings = rpcData.busy_slots || [];
+          const dayAvailability = (rpcData.availability || []).filter(a => a.day_of_week === dayOfWeekNum);
+          
+          if (!dayAvailability || dayAvailability.length === 0) {
+              availableSlotsCache = [];
+              renderTimeSlots();
+              return;
+          }
+
+          let baseRule = dayAvailability[0];
+          const [sh, sm] = baseRule.start_time_local.split(':').map(Number);
+          const [eh, em] = baseRule.end_time_local.split(':').map(Number);
+          const startMins = sh * 60 + sm;
+          const endMins = eh * 60 + em;
+          const now = new Date();
+          const bufferTime = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+          const ms = 1000 * 60 * 30; 
+          const roundedBufferTime = new Date(Math.ceil(bufferTime.getTime() / ms) * ms);
+
+          availableSlotsCache = [];
+          for (let i = 0; i < 144; i++) {
+              const slotStartUTC = new Date(new Date(minUTC).getTime() + i * 30 * 60000);
+              const slotEndUTC = new Date(slotStartUTC.getTime() + 30 * 60000);
+
+              if (slotStartUTC < roundedBufferTime) continue; 
+              const viewerDateCheck = new Intl.DateTimeFormat('en-CA', {
+                  timeZone: currentUserTimezone, year: 'numeric', month: '2-digit', day: '2-digit'
+              }).format(slotStartUTC);
+
+              if (viewerDateCheck !== dateStr) continue;
+              const hasCollision = allMeetings.some(m => {
+                  const mStart = new Date(m.start_time_utc);
+                  const mEnd = new Date(m.end_time_utc);
+                  return (slotStartUTC < mEnd && slotEndUTC > mStart);
+              });
+
+              if (hasCollision) continue;
+              
+              // FIX: Use the host's timezone to correctly interpret their local availability rules
+              const hostFormat = new Intl.DateTimeFormat('en-US', {
+                  timeZone: hostTz, hour: '2-digit', minute: '2-digit', hour12: false
+              }).formatToParts(new Date(slotStartUTC.getTime() + 15 * 60000));
+              
+              let hostHour = hostFormat.find(pt => pt.type === 'hour').value;
+              const hostMin = hostFormat.find(pt => pt.type === 'minute').value;
+              if (hostHour === '24') hostHour = '00';
+              const slotMins = parseInt(hostHour) * 60 + parseInt(hostMin);
+              let isAvailable = false;
+              if (startMins <= endMins) {
+                  if (slotMins >= startMins && slotMins < endMins) isAvailable = true;
+              } else { 
+                  if (slotMins >= startMins || slotMins < endMins) isAvailable = true;
+              }
+
+              if (isAvailable) {
+                  const labelFormatter = new Intl.DateTimeFormat('en-US', { timeZone: currentUserTimezone, hour: 'numeric', minute: '2-digit' });
+                  availableSlotsCache.push({
+                      label: `${labelFormatter.format(slotStartUTC)} - ${labelFormatter.format(slotEndUTC)}`,
+                      startUTC: slotStartUTC.toISOString(),
+                      endUTC: slotEndUTC.toISOString()
+                  });
+              }
+          }
+          renderTimeSlots();
+      } catch (error) {
+          console.error("Error fetching slots:", error);
+          list.innerHTML = `<p class="text-[10px] text-red-500 uppercase col-span-full text-center py-4">Failed to load schedule.</p>`;
+      }
+  }
+
+  function renderTimeSlots() {
+      const list = document.getElementById('timeSlotsList');
+      list.innerHTML = '';
+      
+      if (availableSlotsCache.length === 0) {
+          list.innerHTML = '<p class="text-[10px] text-[rgba(3,35,48,0.5)] uppercase col-span-full text-center py-4 tracking-widest">No mutual slots found</p>';
+          return;
+      }
+
+      availableSlotsCache.forEach(slot => {
+          let tzAbbr = '';
+          try {
+              const tzString = new Date(slot.startUTC).toLocaleString('en-US', { timeZone: currentUserTimezone, timeZoneName: 'short' });
+              tzAbbr = tzString.split(' ').pop();
+          } catch(e) {}
+
+          const slotBtn = document.createElement('button');
+          slotBtn.type = "button";
+          slotBtn.className = "time-slot-btn w-full text-left p-2 mb-2 bg-[rgba(3,35,48,0.03)] hover:bg-[rgba(3,35,48,0.08)] border border-[rgba(3,35,48,0.1)] rounded-xl transition-all flex justify-between items-center group text-[var(--accent-color)]";
+          slotBtn.innerHTML = `
+              <span class="text-sm font-bold tracking-tight">${slot.label} ${tzAbbr}</span>
+              <i data-lucide="check-circle-2" class="w-5 h-5 opacity-0 transition-all check-icon"></i>
+          `;
+          
+          slotBtn.onclick = (e) => {
+              document.querySelectorAll('.time-slot-btn').forEach(b => {
+                  b.classList.remove('bg-[var(--accent-color)]', 'text-white', 'shadow-md');
+                  b.classList.add('bg-[rgba(3,35,48,0.03)]', 'text-[var(--accent-color)]', 'hover:bg-[rgba(3,35,48,0.08)]');
+                  b.querySelector('.check-icon').classList.replace('opacity-100', 'opacity-0');
+              });
+              
+              slotBtn.classList.remove('bg-[rgba(3,35,48,0.03)]', 'text-[var(--accent-color)]', 'hover:bg-[rgba(3,35,48,0.08)]');
+              slotBtn.classList.add('bg-[var(--accent-color)]', 'text-white', 'shadow-md');
+              slotBtn.querySelector('.check-icon').classList.replace('opacity-0', 'opacity-100');
+              
+              activeSelectedSlot = {
+                  timeUtc: slot.startUTC,
+                  endUtc: slot.endUTC,
+                  timeLocal: slot.label,
+                  timezone: currentUserTimezone
+              };
+              document.getElementById('bookNowBtnContainer').classList.remove('hidden');
+          };
+          list.appendChild(slotBtn);
+      });
+      if(window.lucide) lucide.createIcons();
+  }
+
+  // --- 4. BOOKING, DB WRITE & WEBHOOK ---
+  async function confirmBooking() {
+      if (!activeSelectedSlot) return;
+
+      const btn = document.querySelector('#bookNowBtnContainer button');
+      const originalContent = btn.innerHTML;
+      btn.innerHTML = `<svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+      btn.classList.add('opacity-75', 'pointer-events-none');
+
+      try {
+          if (!supabaseInstance) throw new Error("Supabase is not configured. Check the URL/Key.");
+
+          // 1. Double check for overlaps securely using the new RPC
+          const { data: rpcData, error: rpcErr } = await supabaseInstance.rpc('get_public_booking_data', {
+              p_target_profile_id: TARGET_PROFILE_ID,
+              p_start_utc: activeSelectedSlot.timeUtc,
+              p_end_utc: activeSelectedSlot.endUtc
+          });
+
+          if (rpcErr) throw rpcErr;
+
+          // Check if any returned busy slot overlaps with our selected slot
+          const conflictCheck = (rpcData.busy_slots || []).filter(m => {
+              const mStart = new Date(m.start_time_utc);
+              const mEnd = new Date(m.end_time_utc);
+              const sStart = new Date(activeSelectedSlot.timeUtc);
+              const sEnd = new Date(activeSelectedSlot.endUtc);
+              return (sStart < mEnd && sEnd > mStart);
+          });
+
+          if (conflictCheck.length > 0) {
+              alert("Sorry! This time slot is no longer available. Please select another time.");
+              fetchAndRenderSlots(selectedDateStr); 
+              btn.innerHTML = originalContent;
+              btn.classList.remove('opacity-75', 'pointer-events-none');
+              return;
+          }
+
+          // 2. RLS strictly prevents external leads from inserting into `meetings` (auth.uid() = host_id).
+          // We MUST delegate the actual database insertion to the n8n webhook.
+          const emailInput = document.querySelector('input[name="email"]') ? document.querySelector('input[name="email"]').value : 'Unknown User';
+          
+          const [y, m, d] = selectedDateStr.split('-').map(Number);
+          const suffix = (d > 3 && d < 21) || d % 10 > 3 ? 'th' : ['th', 'st', 'nd', 'rd'][d % 10];
+          const monthNames = ["Jan", "Feb", "March", "April", "May", "June", "July", "Aug", "Sept", "Oct", "Nov", "Dec"];
+          const formattedDate = `${d}${suffix} ${monthNames[m - 1]}, ${y}`;
+
+          // Create a temporary ID to fulfill the webhook requirement
+          const temporaryMeetingId = crypto.randomUUID ? crypto.randomUUID() : 'pending-backend-id';
+
+          const payload = {
+              target_profile_id: TARGET_PROFILE_ID,
+              meeting_id: temporaryMeetingId,
+              guest_email: emailInput,
+              booking_details: {
+                  date_selected: formattedDate,
+                  starttime: activeSelectedSlot.timeUtc,
+                  endtime: activeSelectedSlot.endUtc,
+                  user_timezone: activeSelectedSlot.timezone,
+                  time_local: activeSelectedSlot.timeLocal
+              }
+          };
+
+          const webhookResponse = await fetch(WEBHOOK_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+          });
+
+          // Slide to Step 11 (Success Message, index 10)
+          goToStep(10); 
+          
+          // Optionally fade out progress bar once finished
+          const pBar = document.querySelector('.progress-bar-fill');
+          if(pBar) pBar.style.opacity = '0';
+
+          // Hide the navigation pill so the user cannot review/go back after booking
+          const navPill = document.querySelector('.nav-pill');
+          if(navPill) navPill.style.display = 'none';
+
+      } catch (error) {
+          console.error("Booking Error:", error);
+          alert("There was an issue scheduling your session. " + (error.message || "Please try again."));
+          btn.innerHTML = originalContent;
+          btn.classList.remove('opacity-75', 'pointer-events-none');
+      }
+  }
+</script>
+
 </body>
 </html>
